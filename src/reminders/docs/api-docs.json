@@ -1,0 +1,63 @@
+{
+  "module": "RemindersModule",
+  "basePath": "/api/reminders",
+  "description": "Task-linked and standalone reminder scheduling with offset minutes.",
+  "endpoints": [
+    {
+      "name": "Create Reminder",
+      "method": "POST",
+      "path": "/api/reminders",
+      "requestPayload": {
+        "requiredFields": ["title", "dueAt"],
+        "schema": {
+          "title": { "type": "string", "example": "Call Rahul" },
+          "dueAt": { "type": "string (ISO8601)", "example": "2026-08-20T17:00:00Z" },
+          "taskId": { "type": "string", "example": "tsk-101" },
+          "offsetMinutes": { "type": "number", "example": 30, "description": "Trigger reminder N minutes before dueAt" },
+          "recurrenceRule": { "type": "string", "enum": ["DAILY", "WEEKLY", "WEEKDAYS", "MONTHLY"], "example": "DAILY" }
+        },
+        "example": {
+          "title": "Call Rahul",
+          "dueAt": "2026-08-20T17:00:00Z",
+          "offsetMinutes": 30
+        }
+      },
+      "responsePayload": {
+        "status": 201,
+        "example": {
+          "id": "rem-401",
+          "title": "Call Rahul",
+          "dueAt": "2026-08-20T16:30:00.000Z",
+          "offsetMinutes": 30,
+          "status": "PENDING",
+          "pushSent": false
+        }
+      }
+    },
+    {
+      "name": "List All Reminders",
+      "method": "GET",
+      "path": "/api/reminders",
+      "responsePayload": {
+        "status": 200,
+        "example": [
+          { "id": "rem-401", "title": "Call Rahul", "dueAt": "2026-08-20T16:30:00.000Z", "status": "PENDING" }
+        ]
+      }
+    },
+    {
+      "name": "Delete Reminder",
+      "method": "DELETE",
+      "path": "/api/reminders/:id",
+      "pathParams": {
+        "id": { "type": "string", "example": "rem-401" }
+      },
+      "responsePayload": {
+        "status": 200,
+        "example": {
+          "id": "rem-401"
+        }
+      }
+    }
+  ]
+}

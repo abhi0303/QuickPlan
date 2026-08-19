@@ -1,0 +1,143 @@
+// ====================================================================
+// DATABASE CONFIGURATION FILE
+// ====================================================================
+// To configure your database engine & connection string:
+// 
+// 1. For SQLite (default local file database):
+//    provider = "sqlite"
+//    url      = env("DATABASE_URL")   <-- or "file:./dev.db"
+// 
+// 2. For PostgreSQL (production or remote DB):
+//    provider = "postgresql"
+//    url      = env("DATABASE_URL")   <-- e.g. "postgresql://user:password@localhost:5432/quickplan?schema=public"
+// 
+// 3. For MySQL:
+//    provider = "mysql"
+//    url      = env("DATABASE_URL")   <-- e.g. "mysql://user:password@localhost:3306/quickplan"
+// ====================================================================
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String?  @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings      UserSettings?
+  tasks         Task[]
+  reminders     Reminder[]
+  expenses      Expense[]
+  people        Person[]
+  subscriptions PushSubscription[]
+}
+
+model UserSettings {
+  id                           String  @id @default(uuid())
+  userId                       String  @unique
+  user                         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inputLanguage                String  @default("AUTO")
+  outputLanguage               String  @default("SAME")
+  notificationsEnabled         Boolean @default(true)
+  defaultReminderOffsetMinutes Int     @default(15)
+  defaultPriority              String  @default("MEDIUM")
+  defaultCategory              String  @default("General")
+  currency                     String  @default("INR")
+  defaultSplitType             String  @default("EQUAL")
+}
+
+model Task {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  notes       String?
+  status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  priority    String    @default("MEDIUM")  // LOW, MEDIUM, HIGH, URGENT
+  category    String    @default("General")
+  dueDate     DateTime?
+  isCompleted Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  reminders Reminder[]
+}
+
+model Reminder {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId         String?
+  task           Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title          String
+  dueAt          DateTime
+  offsetMinutes  Int       @default(0)
+  recurrenceRule String?   // DAILY, WEEKLY, WEEKDAYS, MONTHLY, CUSTOM
+  status         String    @default("PENDING") // PENDING, SENT, DISMISSED
+  pushSent       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Person {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  nickname  String?
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants ExpenseParticipant[]
+}
+
+model Expense {
+  id                       String               @id @default(uuid())
+  userId                   String
+  user                     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title                    String
+  totalAmount              Float
+  currency                 String               @default("INR")
+  paidById                 String?
+  type                     String               // IOU_PAYABLE, IOU_RECEIVABLE, SPLIT_EXPENSE, DIRECT_EXPENSE
+  status                   String               @default("PENDING") // PENDING, SETTLED
+  participantsCount        Int                  @default(1)
+  unnamedParticipantsCount Int                  @default(0)
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+
+  participants ExpenseParticipant[]
+}
+
+model ExpenseParticipant {
+  id          String    @id @default(uuid())
+  expenseId   String
+  expense     Expense   @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  personId    String?
+  person      Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
+  isMe        Boolean   @default(false)
+  shareAmount Float
+  status      String    @default("PENDING") // PENDING, PAID
+  paidAt      DateTime?
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,35 @@
+{
+  "module": "NotificationsModule",
+  "basePath": "/api/notifications",
+  "description": "PWA Web Push Notification subscription handling and VAPID push dispatches.",
+  "endpoints": [
+    {
+      "name": "Subscribe to Web Push",
+      "method": "POST",
+      "path": "/api/notifications/subscribe",
+      "description": "Saves Web Push subscription endpoint and encryption keys for browser PWA push notifications.",
+      "requestPayload": {
+        "requiredFields": ["endpoint", "p256dh", "auth"],
+        "schema": {
+          "endpoint": { "type": "string", "example": "https://fcm.googleapis.com/fcm/send/..." },
+          "p256dh": { "type": "string", "example": "BIPp..." },
+          "auth": { "type": "string", "example": "8eT..." }
+        },
+        "example": {
+          "endpoint": "https://fcm.googleapis.com/fcm/send/sample_push_token",
+          "p256dh": "BIPpSAMPLEKEY123",
+          "auth": "8eTSAMPLEAUTH456"
+        }
+      },
+      "responsePayload": {
+        "status": 201,
+        "example": {
+          "id": "sub-501",
+          "userId": "usr_98765",
+          "endpoint": "https://fcm.googleapis.com/fcm/send/sample_push_token",
+          "createdAt": "2026-08-19T14:40:00.000Z"
+        }
+      }
+    }
+  ]
+}

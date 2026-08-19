@@ -1,0 +1,109 @@
+{
+  "module": "UserModule",
+  "basePath": "/api/user",
+  "description": "User registration, profile management, and configuration settings.",
+  "endpoints": [
+    {
+      "name": "Register New User",
+      "method": "POST",
+      "path": "/api/user/register",
+      "description": "Explicitly registers a new user profile and initializes default user settings.",
+      "requestPayload": {
+        "schema": {
+          "name": { "type": "string", "example": "Abhi Sharma" },
+          "email": { "type": "string", "example": "abhi@example.com" }
+        },
+        "example": {
+          "name": "Abhi Sharma",
+          "email": "abhi@example.com"
+        }
+      },
+      "responsePayload": {
+        "status": 201,
+        "example": {
+          "id": "usr_98765",
+          "name": "Abhi Sharma",
+          "email": "abhi@example.com",
+          "settings": {
+            "inputLanguage": "AUTO",
+            "outputLanguage": "SAME",
+            "currency": "INR",
+            "defaultReminderOffsetMinutes": 15
+          }
+        }
+      }
+    },
+    {
+      "name": "Get User Profile",
+      "method": "GET",
+      "path": "/api/user/me",
+      "headers": {
+        "x-user-id": { "type": "string", "example": "usr_98765" }
+      },
+      "responsePayload": {
+        "status": 200,
+        "example": {
+          "id": "usr_98765",
+          "name": "Abhi Sharma",
+          "email": "abhi@example.com",
+          "settings": { "currency": "INR" }
+        }
+      }
+    },
+    {
+      "name": "Update User Profile",
+      "method": "PATCH",
+      "path": "/api/user/me",
+      "requestPayload": {
+        "example": {
+          "name": "Abhi S."
+        }
+      },
+      "responsePayload": {
+        "status": 200,
+        "example": {
+          "id": "usr_98765",
+          "name": "Abhi S.",
+          "email": "abhi@example.com"
+        }
+      }
+    },
+    {
+      "name": "Get User Settings",
+      "method": "GET",
+      "path": "/api/user/settings",
+      "responsePayload": {
+        "status": 200,
+        "example": {
+          "inputLanguage": "AUTO",
+          "outputLanguage": "SAME",
+          "notificationsEnabled": true,
+          "defaultReminderOffsetMinutes": 15,
+          "defaultPriority": "MEDIUM",
+          "defaultCategory": "General",
+          "currency": "INR"
+        }
+      }
+    },
+    {
+      "name": "Update User Settings",
+      "method": "PATCH",
+      "path": "/api/user/settings",
+      "requestPayload": {
+        "example": {
+          "inputLanguage": "HINDI",
+          "outputLanguage": "ENGLISH",
+          "defaultReminderOffsetMinutes": 30
+        }
+      },
+      "responsePayload": {
+        "status": 200,
+        "example": {
+          "inputLanguage": "HINDI",
+          "outputLanguage": "ENGLISH",
+          "defaultReminderOffsetMinutes": 30
+        }
+      }
+    }
+  ]
+}

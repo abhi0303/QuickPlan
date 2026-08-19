@@ -1,0 +1,129 @@
+{
+  "module": "TasksModule",
+  "basePath": "/api/tasks",
+  "description": "Task management module supporting CRUD operations, priority levels, categories, and smart views.",
+  "endpoints": [
+    {
+      "name": "Create Task",
+      "method": "POST",
+      "path": "/api/tasks",
+      "description": "Creates a new task manually.",
+      "headers": {
+        "x-user-id": { "type": "string", "required": false, "example": "usr_98765" }
+      },
+      "requestPayload": {
+        "requiredFields": ["title"],
+        "schema": {
+          "title": { "type": "string", "example": "Complete NestJS documentation" },
+          "notes": { "type": "string", "example": "Include DTO payload samples" },
+          "status": { "type": "string", "enum": ["PENDING", "IN_PROGRESS", "COMPLETED"], "example": "PENDING" },
+          "priority": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "URGENT"], "example": "HIGH" },
+          "category": { "type": "string", "example": "Work" },
+          "dueDate": { "type": "string (ISO8601)", "example": "2026-08-20T17:00:00Z" }
+        },
+        "example": {
+          "title": "Call Doctor",
+          "notes": "Discuss medical report",
+          "priority": "HIGH",
+          "category": "Health",
+          "dueDate": "2026-08-20T10:00:00Z"
+        }
+      },
+      "responsePayload": {
+        "status": 201,
+        "example": {
+          "id": "tsk-101",
+          "userId": "usr_98765",
+          "title": "Call Doctor",
+          "status": "PENDING",
+          "priority": "HIGH",
+          "category": "Health",
+          "dueDate": "2026-08-20T10:00:00.000Z",
+          "isCompleted": false,
+          "createdAt": "2026-08-19T14:40:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "List Tasks",
+      "method": "GET",
+      "path": "/api/tasks",
+      "description": "Lists tasks with optional smart view filter ('today', 'upcoming', 'overdue', 'completed'), category, or priority.",
+      "queryParams": {
+        "view": { "type": "string", "enum": ["today", "upcoming", "overdue", "completed"], "required": false, "example": "today" },
+        "category": { "type": "string", "required": false, "example": "Work" },
+        "priority": { "type": "string", "required": false, "example": "HIGH" }
+      },
+      "responsePayload": {
+        "status": 200,
+        "example": [
+          {
+            "id": "tsk-101",
+            "title": "Call Doctor",
+            "status": "PENDING",
+            "priority": "HIGH",
+            "category": "Health",
+            "dueDate": "2026-08-19T10:00:00.000Z",
+            "isCompleted": false,
+            "reminders": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "Get Task By ID",
+      "method": "GET",
+      "path": "/api/tasks/:id",
+      "pathParams": {
+        "id": { "type": "string", "required": true, "example": "tsk-101" }
+      },
+      "responsePayload": {
+        "status": 200,
+        "example": {
+          "id": "tsk-101",
+          "title": "Call Doctor",
+          "status": "PENDING"
+        }
+      }
+    },
+    {
+      "name": "Update Task",
+      "method": "PATCH",
+      "path": "/api/tasks/:id",
+      "pathParams": {
+        "id": { "type": "string", "required": true, "example": "tsk-101" }
+      },
+      "requestPayload": {
+        "schema": {
+          "isCompleted": { "type": "boolean", "example": true }
+        },
+        "example": {
+          "isCompleted": true
+        }
+      },
+      "responsePayload": {
+        "status": 200,
+        "example": {
+          "id": "tsk-101",
+          "status": "COMPLETED",
+          "isCompleted": true
+        }
+      }
+    },
+    {
+      "name": "Delete Task",
+      "method": "DELETE",
+      "path": "/api/tasks/:id",
+      "pathParams": {
+        "id": { "type": "string", "required": true, "example": "tsk-101" }
+      },
+      "responsePayload": {
+        "status": 200,
+        "example": {
+          "id": "tsk-101",
+          "title": "Call Doctor"
+        }
+      }
+    }
+  ]
+}

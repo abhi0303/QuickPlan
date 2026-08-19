@@ -1,0 +1,59 @@
+{
+  "module": "AiModule",
+  "basePath": "/api/v1/smart-input",
+  "description": "Natural Language Processing service supporting voice and text inputs in Hindi, English, and Hinglish.",
+  "endpoints": [
+    {
+      "name": "Process Smart Input",
+      "method": "POST",
+      "path": "/api/v1/smart-input",
+      "description": "Parses a single natural sentence and automatically creates tasks, IOUs, expense splits, or reminders.",
+      "headers": {
+        "x-user-id": {
+          "type": "string",
+          "required": false,
+          "description": "User identifier string (default: 'default-user-id')",
+          "example": "usr_98765"
+        }
+      },
+      "queryParams": {},
+      "pathParams": {},
+      "requestPayload": {
+        "type": "object",
+        "requiredFields": ["text"],
+        "schema": {
+          "text": {
+            "type": "string",
+            "description": "Natural language text or transcribed speech in Hindi, English, or Hinglish."
+          }
+        },
+        "example": {
+          "text": "Kal 5 baje Rahul ko pizza ke 100 rupee dene hain aur 30 minute pehle yaad dila dena"
+        }
+      },
+      "responsePayload": {
+        "status": 201,
+        "schema": {
+          "intent": "string (CREATE_TASK | CREATE_IOU | SPLIT_EXPENSE | SETTLE_EXPENSE)",
+          "message": "string (human readable outcome)",
+          "needsClarification": "boolean",
+          "clarificationQuestion": "string | null",
+          "result": "object (created domain entity)"
+        },
+        "example": {
+          "intent": "CREATE_IOU",
+          "message": "Recorded ₹100 payable to Rahul for pizza.",
+          "needsClarification": false,
+          "clarificationQuestion": null,
+          "result": {
+            "id": "exp-12345",
+            "title": "pizza (Rahul)",
+            "totalAmount": 100,
+            "type": "IOU_PAYABLE",
+            "status": "PENDING"
+          }
+        }
+      }
+    }
+  ]
+}

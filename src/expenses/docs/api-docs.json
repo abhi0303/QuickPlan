@@ -1,0 +1,134 @@
+{
+  "module": "ExpensesModule",
+  "basePath": "/api/expenses",
+  "description": "Expense & IOU engine supporting single-sentence IOUs, group splits (named & anonymous), adding names later, and debt settlement.",
+  "endpoints": [
+    {
+      "name": "Create IOU",
+      "method": "POST",
+      "path": "/api/expenses/iou",
+      "description": "Records payable ('dene hai') or receivable ('lene hai') IOU with person and reason.",
+      "requestPayload": {
+        "requiredFields": ["personName", "amount", "direction"],
+        "schema": {
+          "personName": { "type": "string", "example": "Rahul" },
+          "amount": { "type": "number", "example": 100 },
+          "direction": { "type": "string", "enum": ["PAYABLE", "RECEIVABLE"], "example": "PAYABLE" },
+          "reason": { "type": "string", "example": "Pizza" }
+        },
+        "example": {
+          "personName": "Rahul",
+          "amount": 100,
+          "direction": "PAYABLE",
+          "reason": "Pizza"
+        }
+      },
+      "responsePayload": {
+        "status": 201,
+        "example": {
+          "id": "exp-201",
+          "title": "Pizza (Rahul)",
+          "totalAmount": 100,
+          "type": "IOU_PAYABLE",
+          "status": "PENDING",
+          "participants": [
+            { "isMe": true, "shareAmount": 100, "status": "PENDING" },
+            { "person": { "name": "Rahul" }, "shareAmount": 100, "status": "PAID" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Split Group Expense",
+      "method": "POST",
+      "path": "/api/expenses/split",
+      "description": "Calculates split deterministically across N participants (named or anonymous).",
+      "requestPayload": {
+        "requiredFields": ["title", "totalAmount", "participantsCount"],
+        "schema": {
+          "title": { "type": "string", "example": "Dinner Party" },
+          "totalAmount": { "type": "number", "example": 500 },
+          "participantsCount": { "type": "number", "example": 5 },
+          "paidByMe": { "type": "boolean", "example": true },
+          "names": { "type": "array of strings", "example": ["Rahul", "Amit"] }
+        },
+        "example": {
+          "title": "Pizza Night",
+          "totalAmount": 500,
+          "participantsCount": 5,
+          "names": ["Rahul", "Amit"]
+        }
+      },
+      "responsePayload": {
+        "status": 201,
+        "example": {
+          "id": "exp-202",
+          "title": "Pizza Night",
+          "totalAmount": 500,
+          "participantsCount": 5,
+          "unnamedParticipantsCount": 2,
+          "myShare": 100,
+          "othersOweTotal": 400,
+          "participants": [
+            { "isMe": true, "shareAmount": 100, "status": "PAID" },
+            { "person": { "name": "Rahul" }, "shareAmount": 100, "status": "PENDING" },
+            { "person": { "name": "Amit" }, "shareAmount": 100, "status": "PENDING" },
+            { "person": null, "shareAmount": 100, "status": "PENDING" },
+            { "person": null, "shareAmount": 100, "status": "PENDING" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Add Participant Names Later",
+      "method": "PATCH",
+      "path": "/api/expenses/:id/add-names",
+      "pathParams": {
+        "id": { "type": "string", "example": "exp-202" }
+      },
+      "requestPayload": {
+        "requiredFields": ["names"],
+        "example": {
+          "names": ["Neha", "Vishal"]
+        }
+      },
+      "responsePayload": {
+        "status": 200,
+        "example": {
+          "id": "exp-202",
+          "unnamedParticipantsCount": 0,
+          "participants": [
+            { "person": { "name": "Neha" }, "shareAmount": 100 },
+            { "person": { "name": "Vishal" }, "shareAmount": 100 }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Settle Participant Debt",
+      "method": "PATCH",
+      "path": "/api/expenses/participants/:participantId/settle",
+      "pathParams": {
+        "participantId": { "type": "string", "example": "part-501" }
+      },
+      "responsePayload": {
+        "status": 200,
+        "example": {
+          "id": "exp-202",
+          "status": "SETTLED"
+        }
+      }
+    },
+    {
+      "name": "List All Expenses",
+      "method": "GET",
+      "path": "/api/expenses",
+      "responsePayload": {
+        "status": 200,
+        "example": [
+          { "id": "exp-201", "title": "Pizza (Rahul)", "totalAmount": 100, "type": "IOU_PAYABLE" }
+        ]
+      }
+    }
+  ]
+}
