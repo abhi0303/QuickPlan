@@ -1,0 +1,1178 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/tasks": {
+      "post": {
+        "operationId": "TasksController_create",
+        "summary": "Create a new task manually",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTaskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tasks"
+        ]
+      },
+      "get": {
+        "operationId": "TasksController_findAll",
+        "summary": "List tasks with optional smart view filters",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "view",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "today",
+                "upcoming",
+                "overdue",
+                "completed"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "priority",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tasks"
+        ]
+      }
+    },
+    "/api/tasks/{id}": {
+      "get": {
+        "operationId": "TasksController_findOne",
+        "summary": "Get task by ID",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tasks"
+        ]
+      },
+      "patch": {
+        "operationId": "TasksController_update",
+        "summary": "Update task or mark as completed",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTaskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tasks"
+        ]
+      },
+      "delete": {
+        "operationId": "TasksController_remove",
+        "summary": "Delete task by ID",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tasks"
+        ]
+      }
+    },
+    "/api/reminders": {
+      "post": {
+        "operationId": "RemindersController_create",
+        "summary": "Create reminder with offset minutes",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReminderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reminders"
+        ]
+      },
+      "get": {
+        "operationId": "RemindersController_findAll",
+        "summary": "List all user reminders",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reminders"
+        ]
+      }
+    },
+    "/api/reminders/{id}": {
+      "delete": {
+        "operationId": "RemindersController_remove",
+        "summary": "Delete reminder by ID",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reminders"
+        ]
+      }
+    },
+    "/api/expenses/iou": {
+      "post": {
+        "operationId": "ExpensesController_createIOU",
+        "summary": "Record payable or receivable IOU",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIOUDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Expenses & IOUs"
+        ]
+      }
+    },
+    "/api/expenses/split": {
+      "post": {
+        "operationId": "ExpensesController_splitExpense",
+        "summary": "Split expense among N participants (named & anonymous)",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SplitExpenseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Expenses & IOUs"
+        ]
+      }
+    },
+    "/api/expenses/{id}/add-names": {
+      "patch": {
+        "operationId": "ExpensesController_addNames",
+        "summary": "Add names to anonymous participants later",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddNamesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Expenses & IOUs"
+        ]
+      }
+    },
+    "/api/expenses/participants/{participantId}/settle": {
+      "patch": {
+        "operationId": "ExpensesController_settleParticipant",
+        "summary": "Settle individual participant share (mark paid)",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "participantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Expenses & IOUs"
+        ]
+      }
+    },
+    "/api/expenses": {
+      "get": {
+        "operationId": "ExpensesController_findAll",
+        "summary": "List all user expenses",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Expenses & IOUs"
+        ]
+      }
+    },
+    "/api/expenses/{id}": {
+      "get": {
+        "operationId": "ExpensesController_findOne",
+        "summary": "Get specific expense details",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Expenses & IOUs"
+        ]
+      }
+    },
+    "/api/people": {
+      "post": {
+        "operationId": "PeopleController_create",
+        "summary": "Create contact / person",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePersonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "People & Contacts"
+        ]
+      },
+      "get": {
+        "operationId": "PeopleController_findAll",
+        "summary": "List contacts with aggregate net balances",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "People & Contacts"
+        ]
+      }
+    },
+    "/api/people/{id}/history": {
+      "get": {
+        "operationId": "PeopleController_getHistory",
+        "summary": "Get transaction history with contact",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "People & Contacts"
+        ]
+      }
+    },
+    "/api/v1/smart-input": {
+      "post": {
+        "operationId": "SmartInputController_processInput",
+        "summary": "Process voice or natural language text into structured action",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmartInputDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI Smart Input"
+        ]
+      }
+    },
+    "/api/notifications/subscribe": {
+      "post": {
+        "operationId": "NotificationsController_subscribe",
+        "summary": "Save PWA Web Push subscription endpoint & keys",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribePushDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/user/register": {
+      "post": {
+        "operationId": "UserController_registerUser",
+        "summary": "Register a new user profile with default settings",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "User & Settings"
+        ]
+      }
+    },
+    "/api/user/me": {
+      "get": {
+        "operationId": "UserController_getProfile",
+        "summary": "Get current user profile and settings",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "User & Settings"
+        ]
+      },
+      "patch": {
+        "operationId": "UserController_updateProfile",
+        "summary": "Update user profile (name, email)",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "User & Settings"
+        ]
+      }
+    },
+    "/api/user/settings": {
+      "get": {
+        "operationId": "UserController_getSettings",
+        "summary": "Get user configuration settings",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "User & Settings"
+        ]
+      },
+      "patch": {
+        "operationId": "UserController_updateSettings",
+        "summary": "Update user configuration settings",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "User & Settings"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "QuickPlan API Spec",
+    "description": "Voice-first Smart Todo + Reminder + Expense/IOU Engine API Documentation",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "AI Smart Input",
+      "description": "One-sentence natural language input processing"
+    },
+    {
+      "name": "Tasks",
+      "description": "Task management endpoints"
+    },
+    {
+      "name": "Expenses & IOUs",
+      "description": "Expense splitting and IOU management"
+    },
+    {
+      "name": "People & Contacts",
+      "description": "Contact balance tracking"
+    },
+    {
+      "name": "Reminders",
+      "description": "Reminder scheduling"
+    },
+    {
+      "name": "Notifications",
+      "description": "PWA push notifications"
+    },
+    {
+      "name": "User & Settings",
+      "description": "User registration and configuration"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "x-user-id": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-user-id"
+      }
+    },
+    "schemas": {
+      "CreateTaskDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title of the task",
+            "example": "Call Rahul to discuss project"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional notes or sub-details",
+            "example": "Review report beforehand"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "IN_PROGRESS",
+              "COMPLETED"
+            ],
+            "description": "Task current status",
+            "example": "PENDING"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "URGENT"
+            ],
+            "description": "Task priority level",
+            "example": "HIGH"
+          },
+          "category": {
+            "type": "string",
+            "description": "Task category / tag",
+            "example": "Work"
+          },
+          "dueDate": {
+            "type": "string",
+            "description": "Due date in ISO 8601 string format",
+            "example": "2026-08-20T10:00:00.000Z"
+          },
+          "isCompleted": {
+            "type": "boolean",
+            "description": "Completion status flag",
+            "example": false
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "UpdateTaskDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateReminderDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Reminder title / message",
+            "example": "Call Rahul"
+          },
+          "dueAt": {
+            "type": "string",
+            "description": "Due date in ISO 8601 string format",
+            "example": "2026-08-20T17:00:00.000Z"
+          },
+          "taskId": {
+            "type": "string",
+            "description": "Optional associated task ID",
+            "example": "tsk-101"
+          },
+          "offsetMinutes": {
+            "type": "number",
+            "description": "Trigger notification N minutes before dueAt",
+            "example": 30,
+            "default": 0
+          },
+          "recurrenceRule": {
+            "type": "string",
+            "description": "Recurrence rule: DAILY, WEEKLY, WEEKDAYS, MONTHLY",
+            "example": "DAILY"
+          }
+        },
+        "required": [
+          "title",
+          "dueAt"
+        ]
+      },
+      "CreateIOUDto": {
+        "type": "object",
+        "properties": {
+          "personName": {
+            "type": "string",
+            "description": "Contact / Person name",
+            "example": "Rahul"
+          },
+          "amount": {
+            "type": "number",
+            "description": "IOU amount in INR",
+            "example": 100
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "PAYABLE",
+              "RECEIVABLE"
+            ],
+            "description": "Direction: PAYABLE (I owe them) or RECEIVABLE (They owe me)",
+            "example": "PAYABLE"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for the expense / IOU",
+            "example": "Pizza"
+          }
+        },
+        "required": [
+          "personName",
+          "amount",
+          "direction"
+        ]
+      },
+      "SplitExpenseDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title or reason for group expense",
+            "example": "Pizza Party"
+          },
+          "totalAmount": {
+            "type": "number",
+            "description": "Total expense amount in INR",
+            "example": 500
+          },
+          "participantsCount": {
+            "type": "number",
+            "description": "Total number of participants sharing the bill (including Me)",
+            "example": 5
+          },
+          "paidByMe": {
+            "type": "boolean",
+            "description": "Flag indicating if current user paid the full bill upfront",
+            "example": true,
+            "default": true
+          },
+          "names": {
+            "description": "Optional list of participant names (if known upfront)",
+            "example": [
+              "Rahul",
+              "Amit",
+              "Neha"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "totalAmount",
+          "participantsCount"
+        ]
+      },
+      "AddNamesDto": {
+        "type": "object",
+        "properties": {
+          "names": {
+            "description": "List of participant names to assign to anonymous slots",
+            "example": [
+              "Neha",
+              "Vishal"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "names"
+        ]
+      },
+      "CreatePersonDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Full name of the contact",
+            "example": "Rahul Sharma"
+          },
+          "nickname": {
+            "type": "string",
+            "description": "Optional nickname",
+            "example": "Rahul"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Contact phone number",
+            "example": "+919876543210"
+          },
+          "email": {
+            "type": "string",
+            "description": "Contact email address",
+            "example": "rahul@example.com"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "SmartInputDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Natural language text or voice transcript in Hindi, English, or Hinglish",
+            "example": "Kal 5 baje Rahul ko pizza ke 100 rupee dene hain aur 30 minute pehle yaad dila dena"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "SubscribePushDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "PWA Web Push Endpoint URL",
+            "example": "https://fcm.googleapis.com/fcm/send/sample_push_token"
+          },
+          "p256dh": {
+            "type": "string",
+            "description": "Web Push P256DH Public Key",
+            "example": "BIPpSAMPLEKEY123"
+          },
+          "auth": {
+            "type": "string",
+            "description": "Web Push Auth Key",
+            "example": "8eTSAMPLEAUTH456"
+          }
+        },
+        "required": [
+          "endpoint",
+          "p256dh",
+          "auth"
+        ]
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "User full name",
+            "example": "Abhi Sharma"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "abhi@example.com"
+          }
+        }
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateSettingsDto": {
+        "type": "object",
+        "properties": {
+          "inputLanguage": {
+            "type": "string",
+            "description": "Preferred input language: AUTO, HINDI, ENGLISH",
+            "example": "AUTO"
+          },
+          "outputLanguage": {
+            "type": "string",
+            "description": "Preferred output language: SAME, HINDI, ENGLISH",
+            "example": "SAME"
+          },
+          "notificationsEnabled": {
+            "type": "boolean",
+            "description": "Notification master toggle flag",
+            "example": true
+          },
+          "defaultReminderOffsetMinutes": {
+            "type": "number",
+            "description": "Default reminder offset minutes",
+            "example": 15
+          },
+          "defaultPriority": {
+            "type": "string",
+            "description": "Default task priority: LOW, MEDIUM, HIGH, URGENT",
+            "example": "MEDIUM"
+          },
+          "defaultCategory": {
+            "type": "string",
+            "description": "Default task category",
+            "example": "General"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Default currency symbol/code",
+            "example": "INR"
+          }
+        }
+      }
+    }
+  }
+}

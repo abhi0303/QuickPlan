@@ -1,19 +1,12 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as fs from 'fs';
 import * as path from 'path';
-import { AppModule } from './app.module';
+import { AppModule } from '../src/app.module';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  app.enableCors();
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-    }),
-  );
+async function generateSwaggerSpec() {
+  console.log('⚡ Generating Swagger OpenAPI 3.0 specification...');
+  const app = await NestFactory.create(AppModule, { logger: false });
 
   const config = new DocumentBuilder()
     .setTitle('QuickPlan API Spec')
@@ -30,16 +23,12 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
 
-  // Export OpenAPI 3.0 JSON specification for SwaggerHub import
   const outputPath = path.resolve(process.cwd(), 'swagger-spec.json');
   fs.writeFileSync(outputPath, JSON.stringify(document, null, 2));
 
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
-  console.log(`🚀 QuickPlan NestJS Backend running on http://localhost:${port}`);
-  console.log(`📚 Interactive Swagger UI: http://localhost:${port}/api/docs`);
-  console.log(`📄 Exported OpenAPI Spec: ${outputPath}`);
+  console.log(`✅ OpenAPI 3.0 Specification file generated: ${outputPath}`);
+  await app.close();
 }
-bootstrap();
+
+generateSwaggerSpec();
