@@ -1,14 +1,14 @@
-import { IsString, IsOptional, IsEmail } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsEmail } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateUserDto {
-  @ApiPropertyOptional({ description: 'User full name', example: 'Abhi Sharma' })
-  @IsOptional()
+  @ApiProperty({ description: 'User full name (mandatory)', example: 'Abhi Sharma', required: true })
+  @IsNotEmpty({ message: 'Name is a mandatory field' })
   @IsString()
-  name?: string;
+  name: string;
 
-  @ApiPropertyOptional({ description: 'User email address', example: 'abhi@example.com' })
-  @IsOptional()
-  @IsEmail()
-  email?: string;
+  @ApiProperty({ description: 'User email address (mandatory)', example: 'abhi@example.com', required: true })
+  @IsNotEmpty({ message: 'Email is a mandatory field' })
+  @IsEmail({}, { message: 'Must be a valid email address' })
+  email: string;
 }

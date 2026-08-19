@@ -1119,15 +1119,19 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "User full name",
+            "description": "User full name (mandatory)",
             "example": "Abhi Sharma"
           },
           "email": {
             "type": "string",
-            "description": "User email address",
+            "description": "User email address (mandatory)",
             "example": "abhi@example.com"
           }
-        }
+        },
+        "required": [
+          "name",
+          "email"
+        ]
       },
       "UpdateUserDto": {
         "type": "object",

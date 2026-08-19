@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -9,19 +9,24 @@ export class UserService {
   constructor(private prisma: PrismaService) {}
 
   async createUser(dto: CreateUserDto) {
-    if (dto.email) {
-      const existing = await this.prisma.user.findUnique({
-        where: { email: dto.email },
-      });
-      if (existing) {
-        throw new ConflictException(`User with email ${dto.email} already exists.`);
-      }
+    if (!dto?.name || !dto.name.trim() || !dto?.email || !dto.email.trim()) {
+      throw new BadRequestException('Both name and email are mandatory fields to create a user.');
+    }
+
+    const email = dto.email.trim();
+    const name = dto.name.trim();
+
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+    });
+    if (existing) {
+      throw new ConflictException(`User with email ${email} already exists.`);
     }
 
     return this.prisma.user.create({
       data: {
-        name: dto.name || 'QuickPlan User',
-        email: dto.email || null,
+        name,
+        email,
         settings: {
           create: {
             inputLanguage: 'AUTO',

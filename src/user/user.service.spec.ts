@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -27,7 +28,7 @@ describe('UserService (Add User & Profile Flow)', () => {
     service = module.get<UserService>(UserService);
   });
 
-  it('should register a new user with default settings', async () => {
+  it('should register a new user when mandatory name and email are provided', async () => {
     mockPrismaService.user.findUnique.mockResolvedValue(null);
     mockPrismaService.user.create.mockResolvedValue({
       id: 'new-user-1',
@@ -43,7 +44,13 @@ describe('UserService (Add User & Profile Flow)', () => {
 
     expect(user.id).toBe('new-user-1');
     expect(user.name).toBe('Abhi');
-    expect(mockPrismaService.user.create).toHaveBeenCalled();
+    expect(user.email).toBe('abhi@example.com');
+  });
+
+  it('should throw BadRequestException if name or email is missing', async () => {
+    await expect(service.createUser({ name: '', email: 'test@example.com' })).rejects.toThrow(BadRequestException);
+    await expect(service.createUser({ name: 'Abhi', email: '' })).rejects.toThrow(BadRequestException);
+    await expect(service.createUser({ name: '  ', email: '  ' })).rejects.toThrow(BadRequestException);
   });
 
   it('should auto-ensure user exists on first request', async () => {
