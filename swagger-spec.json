@@ -23,6 +23,17 @@
         }
       }
     },
+    "/health/net": {
+      "get": {
+        "operationId": "AppController_networkDiagnostics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/health/db": {
       "get": {
         "operationId": "AppController_databaseHealthCheck",
