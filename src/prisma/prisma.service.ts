@@ -1,5 +1,11 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { PrismaNeon } from '@prisma/adapter-neon';
+import * as ws from 'ws';
+
+// Neon's driver needs a WebSocket implementation when it runs outside a browser.
+neonConfig.webSocketConstructor = ws;
 
 /**
  * ====================================================================
@@ -27,9 +33,30 @@ import { PrismaClient } from '@prisma/client';
 const MAX_CONNECT_ATTEMPTS = 5;
 const BASE_RETRY_DELAY_MS = 1000;
 
+/**
+ * Prisma's native engine resolves the database host with getaddrinfo, which
+ * prefers IPv6 per RFC 6724 and does not fall back to IPv4. Hosts without IPv6
+ * egress (Render, among others) therefore fail with P1001 even though the IPv4
+ * address is reachable. Routing queries through Neon's driver puts the
+ * connection on Node's networking stack, which does fall back.
+ */
+function buildNeonAdapter(): PrismaNeon | undefined {
+  const connectionString = process.env.DATABASE_URL;
+
+  if (!connectionString) {
+    return undefined;
+  }
+
+  return new PrismaNeon(new Pool({ connectionString }));
+}
+
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
+
+  constructor() {
+    super({ adapter: buildNeonAdapter() });
+  }
 
   async onModuleInit() {
     // Neon suspends idle compute, so the first connection after a quiet period
