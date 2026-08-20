@@ -7,9 +7,20 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Browsers send Origin as scheme + host + port, with no trailing slash or
+  // path, and the cors package matches it as an exact string. Normalise the
+  // configured values so "https://site.io/" or "https://site.io/app" still match.
+  const normaliseOrigin = (value: string): string => {
+    try {
+      return new URL(value).origin;
+    } catch {
+      return value.replace(/\/+$/, '');
+    }
+  };
+
   const allowedOrigins = (process.env.CORS_ORIGINS || '')
     .split(',')
-    .map((o) => o.trim())
+    .map((origin) => normaliseOrigin(origin.trim()))
     .filter(Boolean);
 
   app.enableCors({
