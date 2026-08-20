@@ -7,7 +7,18 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.enableCors();
+  const allowedOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  app.enableCors({
+    origin: allowedOrigins.length ? allowedOrigins : true,
+    credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
+    maxAge: 86400,
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
