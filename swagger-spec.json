@@ -23,6 +23,17 @@
         }
       }
     },
+    "/health/db": {
+      "get": {
+        "operationId": "AppController_databaseHealthCheck",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/tasks": {
       "post": {
         "operationId": "TasksController_create",
