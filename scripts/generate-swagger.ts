@@ -20,6 +20,8 @@ async function generateSwaggerSpec() {
     .addTag('Notifications', 'PWA push notifications')
     .addTag('User & Settings', 'User registration and configuration')
     .addApiKey({ type: 'apiKey', name: 'x-user-id', in: 'header' }, 'x-user-id')
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'bearer')
+    .addSecurityRequirements('bearer')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

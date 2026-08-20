@@ -11,11 +11,13 @@
       "requestPayload": {
         "schema": {
           "name": { "type": "string", "example": "Abhi Sharma" },
-          "email": { "type": "string", "example": "abhi@example.com" }
+          "email": { "type": "string", "example": "abhi@example.com" },
+          "password": { "type": "string", "example": "strong-password", "minLength": 8 }
         },
         "example": {
           "name": "Abhi Sharma",
-          "email": "abhi@example.com"
+          "email": "abhi@example.com",
+          "password": "strong-password"
         }
       },
       "responsePayload": {

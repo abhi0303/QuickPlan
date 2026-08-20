@@ -11,6 +11,7 @@ import { PeopleModule } from './people/people.module';
 import { AiModule } from './ai/ai.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UserModule } from './user/user.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { UserModule } from './user/user.module';
     AiModule,
     NotificationsModule,
     UserModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

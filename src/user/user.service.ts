@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
+import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'crypto';
+import { promisify } from 'util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -13,7 +15,7 @@ export class UserService {
       throw new BadRequestException('Both name and email are mandatory fields to create a user.');
     }
 
-    const email = dto.email.trim();
+    const email = dto.email.trim().toLowerCase();
     const name = dto.name.trim();
 
     const existing = await this.prisma.user.findUnique({
@@ -23,10 +25,13 @@ export class UserService {
       throw new ConflictException(`User with email ${email} already exists.`);
     }
 
+    const passwordHash = dto.password ? await this.hashPassword(dto.password) : undefined;
+
     return this.prisma.user.create({
       data: {
         name,
         email,
+        ...(passwordHash ? { passwordHash } : {}),
         settings: {
           create: {
             inputLanguage: 'AUTO',
@@ -39,8 +44,34 @@ export class UserService {
           },
         },
       },
-      include: { settings: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        updatedAt: true,
+        settings: true,
+      },
     });
+  }
+
+  async findByEmail(email: string) {
+    return this.prisma.user.findUnique({ where: { email } });
+  }
+
+  async hashPassword(password: string) {
+    const salt = randomBytes(16).toString('hex');
+    const derivedKey = (await promisify(scryptCallback)(password, salt, 64)) as Buffer;
+    return `scrypt:${salt}:${derivedKey.toString('hex')}`;
+  }
+
+  async verifyPassword(password: string, storedHash: string) {
+    const [algorithm, salt, hash] = storedHash.split(':');
+    if (algorithm !== 'scrypt' || !salt || !hash) return false;
+
+    const derivedKey = (await promisify(scryptCallback)(password, salt, 64)) as Buffer;
+    const expected = Buffer.from(hash, 'hex');
+    return expected.length === derivedKey.length && timingSafeEqual(expected, derivedKey);
   }
 
   async ensureUserExists(userId: string) {
