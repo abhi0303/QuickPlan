@@ -12,6 +12,17 @@
         }
       }
     },
+    "/health": {
+      "get": {
+        "operationId": "AppController_healthCheck",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/tasks": {
       "post": {
         "operationId": "TasksController_create",
@@ -811,6 +822,56 @@
           "User & Settings"
         ]
       }
+    },
+    "/api/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "summary": "Register with email and password",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "summary": "Login with email and password",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
     }
   },
   "info": {
@@ -856,6 +917,11 @@
         "type": "apiKey",
         "in": "header",
         "name": "x-user-id"
+      },
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
       }
     },
     "schemas": {
@@ -1126,11 +1192,18 @@
             "type": "string",
             "description": "User email address (mandatory)",
             "example": "abhi@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "Account password (mandatory)",
+            "example": "strong-password",
+            "minLength": 8
           }
         },
         "required": [
           "name",
-          "email"
+          "email",
+          "password"
         ]
       },
       "UpdateUserDto": {
@@ -1176,7 +1249,30 @@
             "example": "INR"
           }
         }
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "abhi@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "strong-password",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
       }
     }
-  }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ]
 }

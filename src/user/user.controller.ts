@@ -4,6 +4,7 @@ import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { Public } from '../auth/public.decorator';
 
 @ApiTags('User & Settings')
 @ApiHeader({ name: 'x-user-id', required: false, description: 'User ID header' })
@@ -16,6 +17,7 @@ export class UserController {
   }
 
   @Post('register')
+  @Public()
   @ApiOperation({ summary: 'Register a new user profile with default settings' })
   registerUser(@Body() createUserDto: CreateUserDto) {
     return this.userService.createUser(createUserDto);
