@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 /**
@@ -24,10 +24,42 @@ import { PrismaClient } from '@prisma/client';
  *    npx prisma db push
  * ====================================================================
  */
+const MAX_CONNECT_ATTEMPTS = 5;
+const BASE_RETRY_DELAY_MS = 1000;
+
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PrismaService.name);
+
   async onModuleInit() {
-    await this.$connect();
+    // Neon suspends idle compute, so the first connection after a quiet period
+    // has to wait for the database to wake back up. Retry instead of letting a
+    // cold start take the whole app down at boot.
+    for (let attempt = 1; attempt <= MAX_CONNECT_ATTEMPTS; attempt++) {
+      try {
+        await this.$connect();
+        this.logger.log(`Database connected (attempt ${attempt})`);
+        return;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (attempt === MAX_CONNECT_ATTEMPTS) {
+          // Prisma also connects lazily on the first query, so a failed warm-up
+          // must not stop the HTTP server from starting - otherwise every
+          // request, preflights included, gets no response at all.
+          this.logger.error(
+            `Database unreachable after ${attempt} attempts, continuing without a warm connection: ${message}`,
+          );
+          return;
+        }
+
+        const delay = BASE_RETRY_DELAY_MS * 2 ** (attempt - 1);
+        this.logger.warn(
+          `Database connection attempt ${attempt} failed, retrying in ${delay}ms`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
   }
 
   async onModuleDestroy() {
