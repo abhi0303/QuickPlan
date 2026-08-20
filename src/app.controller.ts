@@ -1,4 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
+import { promises as dns } from 'dns';
+import * as net from 'net';
 import { AppService } from './app.service';
 import { PrismaService } from './prisma/prisma.service';
 import { Public } from './auth/public.decorator';
@@ -21,6 +23,77 @@ export class AppController {
   @Get('health')
   healthCheck() {
     return { status: 'ok' };
+  }
+
+  // Reports how the database host resolves from inside this container and
+  // whether each address is actually reachable on the Postgres port. Prisma
+  // only says "can't reach"; this says which address family failed and how.
+  @Get('health/net')
+  async networkDiagnostics() {
+    const raw = process.env.DATABASE_URL;
+
+    if (!raw) {
+      return { error: 'DATABASE_URL is not set' };
+    }
+
+    let host: string;
+    let port: number;
+
+    try {
+      const url = new URL(raw);
+      host = url.hostname;
+      port = Number(url.port) || 5432;
+    } catch {
+      return { error: 'DATABASE_URL is not a parseable URL' };
+    }
+
+    let addresses: Array<{ address: string; family: number }>;
+
+    try {
+      addresses = await dns.lookup(host, { all: true, verbatim: true });
+    } catch (error) {
+      return {
+        host,
+        port,
+        dns: 'failed',
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+
+    const probes = [];
+
+    for (const entry of addresses) {
+      const startedAt = Date.now();
+
+      const outcome = await new Promise<string>((resolve) => {
+        const socket = net.connect({
+          host: entry.address,
+          port,
+          family: entry.family,
+        });
+
+        const finish = (result: string) => {
+          socket.destroy();
+          resolve(result);
+        };
+
+        socket.setTimeout(5000);
+        socket.on('connect', () => finish('connected'));
+        socket.on('timeout', () => finish('timeout'));
+        socket.on('error', (error: NodeJS.ErrnoException) =>
+          finish(error.code ?? 'error'),
+        );
+      });
+
+      probes.push({
+        address: entry.address,
+        family: `IPv${entry.family}`,
+        outcome,
+        ms: Date.now() - startedAt,
+      });
+    }
+
+    return { host, port, resolutionOrder: probes };
   }
 
   // Deep probe for diagnosing connectivity from inside the deployed container,
