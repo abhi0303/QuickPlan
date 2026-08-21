@@ -9,6 +9,22 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum ExpenseType {
+  IOU_PAYABLE
+  IOU_RECEIVABLE
+  SPLIT_EXPENSE
+}
+
+enum ExpenseStatus {
+  PENDING
+  SETTLED
+}
+
+enum ParticipantStatus {
+  PENDING
+  PAID
+}
+
 model User {
   id            String             @id @default(uuid())
   email         String?            @unique
@@ -74,42 +90,60 @@ model Person {
   id           String               @id @default(uuid())
   userId       String
   name         String
+  /// Lower-cased name, so "Rahul" and "rahul" cannot become two contacts.
+  nameKey      String
   nickname     String?
   phone        String?
   email        String?
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
   participants ExpenseParticipant[]
+  paidExpenses Expense[]            @relation("ExpensePaidBy")
   user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, nameKey])
+  @@index([userId])
 }
 
 model Expense {
   id                       String               @id @default(uuid())
   userId                   String
   title                    String
-  totalAmount              Float
+  totalAmount              Decimal              @db.Decimal(12, 2)
   currency                 String               @default("INR")
+  /// True when the user fronted the money. When false, paidById names the
+  /// contact who did, which is what makes "I owe" answerable.
+  paidByMe                 Boolean              @default(true)
   paidById                 String?
-  type                     String
-  status                   String               @default("PENDING")
+  type                     ExpenseType
+  status                   ExpenseStatus        @default(PENDING)
   participantsCount        Int                  @default(1)
   unnamedParticipantsCount Int                  @default(0)
   createdAt                DateTime             @default(now())
   updatedAt                DateTime             @updatedAt
   user                     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paidBy                   Person?              @relation("ExpensePaidBy", fields: [paidById], references: [id])
   participants             ExpenseParticipant[]
+
+  @@index([userId, status])
+  @@index([userId, type])
+  @@index([userId, createdAt])
+  @@index([paidById])
 }
 
 model ExpenseParticipant {
-  id          String    @id @default(uuid())
+  id          String            @id @default(uuid())
   expenseId   String
   personId    String?
-  isMe        Boolean   @default(false)
-  shareAmount Float
-  status      String    @default("PENDING")
+  isMe        Boolean           @default(false)
+  shareAmount Decimal           @db.Decimal(12, 2)
+  status      ParticipantStatus @default(PENDING)
   paidAt      DateTime?
-  expense     Expense   @relation(fields: [expenseId], references: [id], onDelete: Cascade)
-  person      Person?   @relation(fields: [personId], references: [id])
+  expense     Expense           @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  person      Person?           @relation(fields: [personId], references: [id])
+
+  @@index([expenseId])
+  @@index([personId, status])
 }
 
 model PushSubscription {

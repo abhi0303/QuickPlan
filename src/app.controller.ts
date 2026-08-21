@@ -1,14 +1,18 @@
-import { Controller, Get } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { Controller, Get, Headers, Logger, NotFoundException } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import { promises as dns } from 'dns';
 import * as net from 'net';
 import { AppService } from './app.service';
 import { PrismaService } from './prisma/prisma.service';
 import { Public } from './auth/public.decorator';
 
+const DIAGNOSTICS_HEADER = 'x-diagnostics-token';
+
 @Controller()
 @Public()
 export class AppController {
+  private readonly logger = new Logger(AppController.name);
+
   constructor(
     private readonly appService: AppService,
     private readonly prisma: PrismaService,
@@ -26,11 +30,41 @@ export class AppController {
     return { status: 'ok' };
   }
 
-  // Reports how the database host resolves from inside this container and
-  // whether each address is actually reachable on the Postgres port. Prisma
-  // only says "can't reach"; this says which address family failed and how.
+  // The database connects lazily, so a successful boot says nothing about
+  // whether queries actually work. This answers that. Details go to the logs
+  // rather than the response, since the endpoint is public.
+  @Get('health/db')
+  async databaseHealthCheck() {
+    const startedAt = Date.now();
+
+    try {
+      await this.prisma.$queryRaw`select 1`;
+      return { database: 'reachable', latencyMs: Date.now() - startedAt };
+    } catch (error) {
+      this.logger.error(
+        `Database health check failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+
+      return { database: 'unreachable', latencyMs: Date.now() - startedAt };
+    }
+  }
+
+  /**
+   * Reports how the database host resolves from inside this container and
+   * whether each address is reachable on the Postgres port. Prisma only ever
+   * says "can't reach"; this says which address family failed and with what
+   * errno - the difference between a routing problem, a blocked port and a
+   * DNS problem.
+   *
+   * Gated behind DIAGNOSTICS_TOKEN because it discloses internal topology.
+   * With no token configured the route does not exist at all.
+   */
   @Get('health/net')
-  async networkDiagnostics() {
+  async networkDiagnostics(@Headers(DIAGNOSTICS_HEADER) token?: string) {
+    this.assertDiagnosticsAllowed(token);
+
     const raw = process.env.DATABASE_URL;
 
     if (!raw) {
@@ -97,52 +131,23 @@ export class AppController {
     return { host, port, resolutionOrder: probes };
   }
 
-  // Deep probe for diagnosing connectivity from inside the deployed container,
-  // where the database is reachable or not for reasons a local run cannot show.
-  @Get('health/db')
-  async databaseHealthCheck() {
-    const startedAt = Date.now();
+  // A wrong or missing token is reported as 404 rather than 401 so the route
+  // does not advertise itself to anyone scanning the API.
+  private assertDiagnosticsAllowed(token?: string) {
+    const expected = process.env.DIAGNOSTICS_TOKEN;
 
-    // Identify the credentials in use without ever exposing the password, so a
-    // stale connection string can be spotted from the outside.
-    let identity: Record<string, string> = {};
-
-    try {
-      const url = new URL(process.env.DATABASE_URL ?? '');
-      identity = {
-        user: url.username,
-        host: url.hostname,
-        databaseName: url.pathname.replace(/^\//, ''),
-        passwordFingerprint: createHash('sha256')
-          .update(url.password)
-          .digest('hex')
-          .slice(0, 8),
-      };
-    } catch {
-      identity = { user: 'unknown', host: 'unknown', databaseName: 'unknown' };
+    if (!expected || !token) {
+      throw new NotFoundException();
     }
 
-    try {
-      await this.prisma.$queryRaw`select 1`;
-      return { database: 'reachable', latencyMs: Date.now() - startedAt, ...identity };
-    } catch (error) {
-      // Prisma messages are multi-line and start with blank lines, so pick the
-      // first line that actually carries text.
-      const raw = error instanceof Error ? error.message : String(error);
-      const summary = raw
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .find((line) => !line.startsWith('Invalid `'));
+    const provided = Buffer.from(token);
+    const target = Buffer.from(expected);
 
-      return {
-        database: 'unreachable',
-        latencyMs: Date.now() - startedAt,
-        errorName: error instanceof Error ? error.name : 'Unknown',
-        errorCode: (error as { errorCode?: string }).errorCode ?? null,
-        message: summary ?? raw.trim(),
-        ...identity,
-      };
+    if (
+      provided.length !== target.length ||
+      !timingSafeEqual(provided, target)
+    ) {
+      throw new NotFoundException();
     }
   }
 }

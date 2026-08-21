@@ -70,17 +70,15 @@ export class SmartInputService {
         const person = people.find((p) => p.name.toLowerCase() === personName.toLowerCase());
 
         if (person) {
+          // Handles both directions; matching only on the contact's own
+          // participant row would silently skip anything I owe them.
           const history = await this.peopleService.getHistory(userId, person.id);
           const pendingTx = history.transactions.find((t) => t.status === 'PENDING');
+
           if (pendingTx) {
-            // Find participant record ID
-            const expense = await this.expensesService.findOne(userId, pendingTx.id);
-            const part = expense.participants.find((p) => p.personId === person.id && p.status === 'PENDING');
-            if (part) {
-              createdEntity = await this.expensesService.settleParticipant(userId, part.id);
-              message = `Marked ₹${part.shareAmount} from ${personName} as settled!`;
-              break;
-            }
+            createdEntity = await this.expensesService.settleWithPerson(userId, person.id);
+            message = `Marked ₹${pendingTx.shareAmount} with ${personName} as settled!`;
+            break;
           }
         }
         message = `Recorded settlement request for ${personName}.`;
