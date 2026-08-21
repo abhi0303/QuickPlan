@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { promises as dns } from 'dns';
 import * as net from 'net';
 import { AppService } from './app.service';
@@ -102,9 +103,28 @@ export class AppController {
   async databaseHealthCheck() {
     const startedAt = Date.now();
 
+    // Identify the credentials in use without ever exposing the password, so a
+    // stale connection string can be spotted from the outside.
+    let identity: Record<string, string> = {};
+
+    try {
+      const url = new URL(process.env.DATABASE_URL ?? '');
+      identity = {
+        user: url.username,
+        host: url.hostname,
+        databaseName: url.pathname.replace(/^\//, ''),
+        passwordFingerprint: createHash('sha256')
+          .update(url.password)
+          .digest('hex')
+          .slice(0, 8),
+      };
+    } catch {
+      identity = { user: 'unknown', host: 'unknown', databaseName: 'unknown' };
+    }
+
     try {
       await this.prisma.$queryRaw`select 1`;
-      return { database: 'reachable', latencyMs: Date.now() - startedAt };
+      return { database: 'reachable', latencyMs: Date.now() - startedAt, ...identity };
     } catch (error) {
       // Prisma messages are multi-line and start with blank lines, so pick the
       // first line that actually carries text.
@@ -121,6 +141,7 @@ export class AppController {
         errorName: error instanceof Error ? error.name : 'Unknown',
         errorCode: (error as { errorCode?: string }).errorCode ?? null,
         message: summary ?? raw.trim(),
+        ...identity,
       };
     }
   }
