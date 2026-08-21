@@ -23,9 +23,9 @@
         }
       }
     },
-    "/health/net": {
+    "/health/db": {
       "get": {
-        "operationId": "AppController_networkDiagnostics",
+        "operationId": "AppController_databaseHealthCheck",
         "parameters": [],
         "responses": {
           "200": {
@@ -34,10 +34,19 @@
         }
       }
     },
-    "/health/db": {
+    "/health/net": {
       "get": {
-        "operationId": "AppController_databaseHealthCheck",
-        "parameters": [],
+        "operationId": "AppController_networkDiagnostics",
+        "parameters": [
+          {
+            "name": "x-diagnostics-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""

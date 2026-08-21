@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { createHash } from 'crypto';
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { PrismaNeon } from '@prisma/adapter-neon';
 import * as ws from 'ws';
@@ -59,6 +60,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
+    this.logConnectionIdentity();
+
     // Neon suspends idle compute, so the first connection after a quiet period
     // has to wait for the database to wake back up. Retry instead of letting a
     // cold start take the whole app down at boot.
@@ -91,5 +94,35 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleDestroy() {
     await this.$disconnect();
+  }
+
+  /**
+   * Records which credentials this instance is actually using. Environments
+   * disagree quietly - a stale password in a dashboard variable overrides the
+   * committed .env and surfaces only as an auth error on the first query. The
+   * fingerprint makes two deployments comparable without exposing the secret.
+   */
+  private logConnectionIdentity() {
+    const raw = process.env.DATABASE_URL;
+
+    if (!raw) {
+      this.logger.error('DATABASE_URL is not set');
+      return;
+    }
+
+    try {
+      const url = new URL(raw);
+      const fingerprint = createHash('sha256')
+        .update(url.password)
+        .digest('hex')
+        .slice(0, 8);
+
+      this.logger.log(
+        `Using database ${url.pathname.replace(/^\//, '')} at ${url.hostname} ` +
+          `as ${url.username} (password fingerprint ${fingerprint})`,
+      );
+    } catch {
+      this.logger.error('DATABASE_URL is not a parseable URL');
+    }
   }
 }
