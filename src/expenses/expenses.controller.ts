@@ -1,9 +1,20 @@
-import { Controller, Get, Post, Patch, Body, Param, Headers } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  Headers,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
 import { ExpensesService } from './expenses.service';
 import { CreateIOUDto } from './dto/create-iou.dto';
 import { SplitExpenseDto } from './dto/split-expense.dto';
 import { AddNamesDto } from './dto/add-names.dto';
+import { QueryExpensesDto } from './dto/query-expenses.dto';
 
 @ApiTags('Expenses & IOUs')
 @ApiHeader({ name: 'x-user-id', required: false, description: 'User ID header' })
@@ -11,8 +22,17 @@ import { AddNamesDto } from './dto/add-names.dto';
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
+  // JwtAuthGuard overwrites x-user-id with the verified token subject, so this
+  // is the authenticated user. Failing loudly beats writing rows under a
+  // placeholder id if the guard is ever removed from this route.
   private getUserId(headers: Record<string, string>): string {
-    return headers['x-user-id'] || 'default-user-id';
+    const userId = headers['x-user-id'];
+
+    if (!userId) {
+      throw new UnauthorizedException('Authenticated user could not be resolved.');
+    }
+
+    return userId;
   }
 
   @Post('iou')
@@ -47,9 +67,21 @@ export class ExpensesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all user expenses' })
-  findAll(@Headers() headers: Record<string, string>) {
-    return this.expensesService.findAll(this.getUserId(headers));
+  @ApiOperation({
+    summary: 'List expenses, filtered by direction, type, status, contact or date',
+  })
+  findAll(
+    @Headers() headers: Record<string, string>,
+    @Query() query: QueryExpensesDto,
+  ) {
+    return this.expensesService.findAll(this.getUserId(headers), query);
+  }
+
+  // Declared before ':id' so the literal path is not captured as an id.
+  @Get('summary')
+  @ApiOperation({ summary: 'Totals for what you owe and what you are owed' })
+  getSummary(@Headers() headers: Record<string, string>) {
+    return this.expensesService.getSummary(this.getUserId(headers));
   }
 
   @Get(':id')

@@ -487,7 +487,116 @@
     "/api/expenses": {
       "get": {
         "operationId": "ExpensesController_findAll",
-        "summary": "List all user expenses",
+        "summary": "List expenses, filtered by direction, type, status, contact or date",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "description": "I_OWE lists money you must pay, OWED_TO_ME money due to you",
+            "schema": {
+              "enum": [
+                "I_OWE",
+                "OWED_TO_ME"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "IOU_PAYABLE",
+                "IOU_RECEIVABLE",
+                "SPLIT_EXPENSE"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "PENDING",
+                "SETTLED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "personId",
+            "required": false,
+            "in": "query",
+            "description": "Only expenses involving this contact",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Created on or after (ISO 8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Created on or before (ISO 8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 200,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Expenses & IOUs"
+        ]
+      }
+    },
+    "/api/expenses/summary": {
+      "get": {
+        "operationId": "ExpensesController_getSummary",
+        "summary": "Totals for what you owe and what you are owed",
         "parameters": [
           {
             "name": "x-user-id",
