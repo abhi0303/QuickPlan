@@ -306,6 +306,47 @@
       }
     },
     "/api/reminders/{id}": {
+      "patch": {
+        "operationId": "RemindersController_update",
+        "summary": "Update a reminder in place, keeping its id",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReminderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reminders"
+        ]
+      },
       "delete": {
         "operationId": "RemindersController_remove",
         "summary": "Delete reminder by ID",
@@ -777,6 +818,31 @@
         ]
       }
     },
+    "/api/notifications/vapid-public-key": {
+      "get": {
+        "operationId": "NotificationsController_getVapidPublicKey",
+        "summary": "VAPID public key the browser subscribes with",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
     "/api/notifications/subscribe": {
       "post": {
         "operationId": "NotificationsController_subscribe",
@@ -802,6 +868,64 @@
             }
           }
         },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "delete": {
+        "operationId": "NotificationsController_unsubscribe",
+        "summary": "Forget a push subscription for this device",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnsubscribePushDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notifications/test": {
+      "post": {
+        "operationId": "NotificationsController_sendTest",
+        "summary": "Send a test push to the caller's own devices",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1158,6 +1282,33 @@
           "dueAt"
         ]
       },
+      "UpdateReminderDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Reminder title",
+            "example": "Call Rahul"
+          },
+          "dueAt": {
+            "type": "string",
+            "description": "Due moment, ISO 8601 (UTC)"
+          },
+          "offsetMinutes": {
+            "type": "number",
+            "description": "Alert this many minutes before dueAt",
+            "example": 30
+          },
+          "recurrenceRule": {
+            "type": "string",
+            "description": "DAILY, WEEKDAYS, WEEKLY or MONTHLY"
+          },
+          "taskId": {
+            "type": "string",
+            "description": "Associated task id"
+          }
+        }
+      },
       "CreateIOUDto": {
         "type": "object",
         "properties": {
@@ -1300,24 +1451,41 @@
         "properties": {
           "endpoint": {
             "type": "string",
-            "description": "PWA Web Push Endpoint URL",
-            "example": "https://fcm.googleapis.com/fcm/send/sample_push_token"
+            "description": "Push endpoint issued by the browser vendor",
+            "example": "https://web.push.apple.com/sample_endpoint"
           },
           "p256dh": {
             "type": "string",
-            "description": "Web Push P256DH Public Key",
+            "description": "Web Push P256DH public key",
             "example": "BIPpSAMPLEKEY123"
           },
           "auth": {
             "type": "string",
-            "description": "Web Push Auth Key",
+            "description": "Web Push auth secret",
             "example": "8eTSAMPLEAUTH456"
+          },
+          "userAgent": {
+            "type": "string",
+            "description": "Device description, kept for debugging"
           }
         },
         "required": [
           "endpoint",
           "p256dh",
           "auth"
+        ]
+      },
+      "UnsubscribePushDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "The endpoint to forget, as returned by the browser",
+            "example": "https://web.push.apple.com/sample_endpoint"
+          }
+        },
+        "required": [
+          "endpoint"
         ]
       },
       "CreateUserDto": {

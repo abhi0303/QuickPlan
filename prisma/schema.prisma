@@ -71,19 +71,28 @@ model Task {
 }
 
 model Reminder {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   userId         String
   taskId         String?
   title          String
+  /// The moment the reminder is for. The lead-in alert is derived from this
+  /// and offsetMinutes; it is never stored in place of it.
   dueAt          DateTime
-  offsetMinutes  Int      @default(0)
+  offsetMinutes  Int       @default(0)
   recurrenceRule String?
-  status         String   @default("PENDING")
-  pushSent       Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  task           Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status         String    @default("PENDING")
+  pushSent       Boolean   @default(false)
+  /// Set when each of the two alerts has gone out, so a restart cannot resend
+  /// and a passed reminder cannot fire on every tick.
+  sentLeadAt     DateTime?
+  sentDueAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  task           Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status, dueAt])
 }
 
 model Person {
@@ -147,11 +156,18 @@ model ExpenseParticipant {
 }
 
 model PushSubscription {
-  id        String   @id @default(uuid())
-  userId    String
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String    @id @default(uuid())
+  userId       String
+  /// Unique per browser install; the frontend re-subscribes on every load, so
+  /// this is the upsert key that stops duplicate rows and duplicate alerts.
+  endpoint     String    @unique
+  p256dh       String
+  auth         String
+  userAgent    String?
+  lastUsedAt   DateTime?
+  failureCount Int       @default(0)
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
