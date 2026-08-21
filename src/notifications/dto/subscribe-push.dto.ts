@@ -1,19 +1,27 @@
-import { IsString, IsNotEmpty } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SubscribePushDto {
-  @ApiProperty({ description: 'PWA Web Push Endpoint URL', example: 'https://fcm.googleapis.com/fcm/send/sample_push_token' })
+  @ApiProperty({
+    description: 'Push endpoint issued by the browser vendor',
+    example: 'https://web.push.apple.com/sample_endpoint',
+  })
   @IsString()
   @IsNotEmpty()
   endpoint: string;
 
-  @ApiProperty({ description: 'Web Push P256DH Public Key', example: 'BIPpSAMPLEKEY123' })
+  @ApiProperty({ description: 'Web Push P256DH public key', example: 'BIPpSAMPLEKEY123' })
   @IsString()
   @IsNotEmpty()
   p256dh: string;
 
-  @ApiProperty({ description: 'Web Push Auth Key', example: '8eTSAMPLEAUTH456' })
+  @ApiProperty({ description: 'Web Push auth secret', example: '8eTSAMPLEAUTH456' })
   @IsString()
   @IsNotEmpty()
   auth: string;
+
+  @ApiPropertyOptional({ description: 'Device description, kept for debugging' })
+  @IsOptional()
+  @IsString()
+  userAgent?: string;
 }

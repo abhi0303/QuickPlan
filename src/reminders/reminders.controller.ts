@@ -1,7 +1,18 @@
-import { Controller, Get, Post, Delete, Body, Param, Headers } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Headers,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
 import { RemindersService } from './reminders.service';
 import { CreateReminderDto } from './dto/create-reminder.dto';
+import { UpdateReminderDto } from './dto/update-reminder.dto';
 
 @ApiTags('Reminders')
 @ApiHeader({ name: 'x-user-id', required: false, description: 'User ID header' })
@@ -10,7 +21,13 @@ export class RemindersController {
   constructor(private readonly remindersService: RemindersService) {}
 
   private getUserId(headers: Record<string, string>): string {
-    return headers['x-user-id'] || 'default-user-id';
+    const userId = headers['x-user-id'];
+
+    if (!userId) {
+      throw new UnauthorizedException('Authenticated user could not be resolved.');
+    }
+
+    return userId;
   }
 
   @Post()
@@ -23,6 +40,16 @@ export class RemindersController {
   @ApiOperation({ summary: 'List all user reminders' })
   findAll(@Headers() headers: Record<string, string>) {
     return this.remindersService.findAll(this.getUserId(headers));
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update a reminder in place, keeping its id' })
+  update(
+    @Headers() headers: Record<string, string>,
+    @Param('id') id: string,
+    @Body() dto: UpdateReminderDto,
+  ) {
+    return this.remindersService.update(this.getUserId(headers), id, dto);
   }
 
   @Delete(':id')
