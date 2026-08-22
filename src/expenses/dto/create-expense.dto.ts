@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsPositive,
+  Min,
   IsString,
   IsUUID,
   Length,
@@ -24,8 +25,10 @@ export class ExpenseShareInputDto {
     description: 'Amount for EXACT, or percent for PERCENTAGE. Ignored for EQUAL.',
     example: 250,
   })
+  // EQUAL splits ignore this field and clients send 0, so the floor is 0 rather
+  // than positive. EXACT and PERCENTAGE totals are checked in the service.
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   value: number;
 }
 

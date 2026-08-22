@@ -1,4 +1,4 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { PartialType } from '@nestjs/swagger';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsISO8601, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { CreateReminderDto } from './create-reminder.dto';

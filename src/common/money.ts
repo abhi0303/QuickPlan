@@ -78,3 +78,24 @@ export function suggestSettlements(
 
   return transfers;
 }
+
+/**
+ * Formats an amount the way the balances screen does, so the number in a
+ * notification matches the number the recipient sees in the app. Whole amounts
+ * lose the trailing ".00"; anything else keeps two places.
+ */
+export function formatMoney(value: Prisma.Decimal | number, currency = 'INR'): string {
+  const amount = toNumber(value);
+
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    // An unknown currency code should not stop a notification going out.
+    return `${currency} ${amount.toFixed(2)}`;
+  }
+}

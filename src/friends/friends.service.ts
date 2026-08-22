@@ -1,11 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationEmitter } from '../notifications/notification-emitter.service';
+import { friendAdded } from '../notifications/notification-events';
 
 const USER_CARD = { id: true, name: true, email: true } as const;
 
 @Injectable()
 export class FriendsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emitter: NotificationEmitter,
+  ) {}
 
   /**
    * Search is how you find someone to add, so it exposes only a name, an email
@@ -58,6 +63,8 @@ export class FriendsService {
       throw new NotFoundException(`User ${friendId} not found`);
     }
 
+    const alreadyFriends = await this.areFriends(userId, friendId);
+
     await this.prisma.$transaction([
       this.prisma.friendship.upsert({
         where: { userId_friendId: { userId, friendId } },
@@ -70,6 +77,16 @@ export class FriendsService {
         create: { userId: friendId, friendId: userId },
       }),
     ]);
+
+    // Only on a genuinely new friendship - re-adding should not ping them again.
+    if (!alreadyFriends) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      });
+
+      await this.emitter.emitOne(friendAdded(friendId, userId, actor?.name ?? 'Someone'));
+    }
 
     return friend;
   }

@@ -3,6 +3,8 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { RemindersService } from '../reminders/reminders.service';
 import { PushService } from './push.service';
+import { NotificationEmitter } from './notification-emitter.service';
+import { reminderDue, reminderLead } from './notification-events';
 import { SubscribePushDto } from './dto/subscribe-push.dto';
 import { leadTime } from '../reminders/recurrence';
 
@@ -14,6 +16,7 @@ export class NotificationsService {
     private prisma: PrismaService,
     private remindersService: RemindersService,
     private pushService: PushService,
+    private emitter: NotificationEmitter,
   ) {}
 
   /**
@@ -85,15 +88,11 @@ export class NotificationsService {
       // When both moments have passed, only the due alert is worth sending -
       // a lead-in for something already due is noise.
       if (dueNow) {
-        await this.pushService.sendToUser(reminder.userId, {
-          title: reminder.title,
-          body: `Due at ${this.formatTime(reminder.dueAt)}`,
-          url: './reminders',
-          tag: `reminder-${reminder.id}`,
-          requireInteraction: true,
-          timestamp: reminder.dueAt.getTime(),
-          data: { reminderId: reminder.id, moment: 'DUE' },
-        });
+        // Goes through the emitter so the reminder also lands in the bell menu,
+        // not just as a banner the user may miss.
+        await this.emitter.emitOne(
+          reminderDue(reminder.userId, reminder.id, reminder.title),
+        );
 
         await this.remindersService.markDueSent(reminder.id, now);
         continue;
@@ -103,24 +102,13 @@ export class NotificationsService {
         reminder.offsetMinutes > 0 && reminder.sentLeadAt === null && leadAt <= now;
 
       if (leadDue) {
-        await this.pushService.sendToUser(reminder.userId, {
-          title: reminder.title,
-          body: `In ${reminder.offsetMinutes} minutes, at ${this.formatTime(reminder.dueAt)}`,
-          url: './reminders',
-          tag: `reminder-${reminder.id}`,
-          requireInteraction: true,
-          timestamp: leadAt.getTime(),
-          data: { reminderId: reminder.id, moment: 'LEAD' },
-        });
+        await this.emitter.emitOne(
+          reminderLead(reminder.userId, reminder.id, reminder.title, reminder.offsetMinutes),
+        );
 
         await this.remindersService.markLeadSent(reminder.id, now);
       }
     }
-  }
-
-  /** UTC, because dueAt is stored in UTC and the server's own zone is irrelevant. */
-  private formatTime(date: Date): string {
-    return date.toISOString().slice(11, 16) + ' UTC';
   }
 
   /** Retained for callers outside the scheduler. */

@@ -3,6 +3,7 @@ import { NotificationsService } from './notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RemindersService } from '../reminders/reminders.service';
 import { PushService } from './push.service';
+import { NotificationEmitter } from './notification-emitter.service';
 
 describe('NotificationsService scheduler', () => {
   let service: NotificationsService;
@@ -14,6 +15,7 @@ describe('NotificationsService scheduler', () => {
     markDueSent: jest.fn(),
   };
   const prisma = { pushSubscription: { upsert: jest.fn(), deleteMany: jest.fn() } };
+  const emitter = { emit: jest.fn(), emitOne: jest.fn() };
 
   const reminder = (over: Partial<Record<string, unknown>> = {}) => ({
     id: 'rmd-1',
@@ -35,6 +37,7 @@ describe('NotificationsService scheduler', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: RemindersService, useValue: reminders },
         { provide: PushService, useValue: push },
+        { provide: NotificationEmitter, useValue: emitter },
       ],
     }).compile();
     service = module.get(NotificationsService);
@@ -50,11 +53,16 @@ describe('NotificationsService scheduler', () => {
     reminders.findDueReminders.mockResolvedValue([reminder()]);
     await runAt('2026-08-21T09:30:00Z');
 
-    expect(push.sendToUser).toHaveBeenCalledTimes(1);
-    expect(push.sendToUser.mock.calls[0][1]).toMatchObject({
+    expect(emitter.emitOne).toHaveBeenCalledTimes(1);
+    expect(emitter.emitOne.mock.calls[0][0]).toMatchObject({
+      userId: 'user-1',
+      type: 'REMINDER_LEAD',
       title: 'Call Rahul',
+      body: 'Due in 30 minutes.',
+      url: '/reminders',
+      entityId: 'rmd-1',
       tag: 'reminder-rmd-1',
-      data: { reminderId: 'rmd-1', moment: 'LEAD' },
+      requireInteraction: true,
     });
     expect(reminders.markLeadSent).toHaveBeenCalledWith('rmd-1', expect.any(Date));
     expect(reminders.markDueSent).not.toHaveBeenCalled();
@@ -66,7 +74,7 @@ describe('NotificationsService scheduler', () => {
     ]);
     await runAt('2026-08-21T09:45:00Z');
 
-    expect(push.sendToUser).not.toHaveBeenCalled();
+    expect(emitter.emitOne).not.toHaveBeenCalled();
     expect(reminders.markLeadSent).not.toHaveBeenCalled();
   });
 
@@ -76,8 +84,10 @@ describe('NotificationsService scheduler', () => {
     ]);
     await runAt('2026-08-21T10:00:00Z');
 
-    expect(push.sendToUser.mock.calls[0][1]).toMatchObject({
-      data: { reminderId: 'rmd-1', moment: 'DUE' },
+    expect(emitter.emitOne.mock.calls[0][0]).toMatchObject({
+      type: 'REMINDER_DUE',
+      body: 'Reminder due now.',
+      entityId: 'rmd-1',
       requireInteraction: true,
     });
     expect(reminders.markDueSent).toHaveBeenCalledWith('rmd-1', expect.any(Date));
@@ -87,8 +97,8 @@ describe('NotificationsService scheduler', () => {
     reminders.findDueReminders.mockResolvedValue([reminder()]);
     await runAt('2026-08-21T11:00:00Z');
 
-    expect(push.sendToUser).toHaveBeenCalledTimes(1);
-    expect(push.sendToUser.mock.calls[0][1].data.moment).toBe('DUE');
+    expect(emitter.emitOne).toHaveBeenCalledTimes(1);
+    expect(emitter.emitOne.mock.calls[0][0].type).toBe('REMINDER_DUE');
     expect(reminders.markLeadSent).not.toHaveBeenCalled();
   });
 
@@ -96,14 +106,14 @@ describe('NotificationsService scheduler', () => {
     reminders.findDueReminders.mockResolvedValue([reminder({ offsetMinutes: 0 })]);
     await runAt('2026-08-21T09:45:00Z');
 
-    expect(push.sendToUser).not.toHaveBeenCalled();
+    expect(emitter.emitOne).not.toHaveBeenCalled();
   });
 
   it('does nothing when no reminder is due', async () => {
     reminders.findDueReminders.mockResolvedValue([]);
     await runAt('2026-08-21T08:00:00Z');
 
-    expect(push.sendToUser).not.toHaveBeenCalled();
+    expect(emitter.emitOne).not.toHaveBeenCalled();
   });
 
   it('upserts a subscription on endpoint so reloads do not duplicate rows', async () => {

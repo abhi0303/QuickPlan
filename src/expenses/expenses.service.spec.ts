@@ -4,6 +4,7 @@ import { GroupRole, Prisma, SplitType } from '@prisma/client';
 import { ExpensesService } from './expenses.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GroupAccessService } from '../groups/group-access.service';
+import { NotificationEmitter } from '../notifications/notification-emitter.service';
 
 describe('ExpensesService', () => {
   let service: ExpensesService;
@@ -27,15 +28,17 @@ describe('ExpensesService', () => {
 
   const prisma = {
     expense: { create: created, findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), update: jest.fn(), delete: jest.fn() },
-    expenseShare: { deleteMany: jest.fn(), createMany: jest.fn() },
+    expenseShare: { deleteMany: jest.fn(), createMany: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
     groupMember: { findMany: jest.fn().mockResolvedValue(MEMBERS.map((userId) => ({ userId }))) },
-    group: { update: jest.fn() },
+    group: { update: jest.fn(), findUnique: jest.fn().mockResolvedValue({ name: 'G', currency: 'INR' }) },
+    user: { findUnique: jest.fn().mockResolvedValue({ name: 'Actor' }) },
     $transaction: jest.fn((fn) => fn(prisma)),
   };
 
   const access = {
     requireMembership: jest.fn().mockResolvedValue({ role: GroupRole.MEMBER }),
   };
+  const emitter = { emit: jest.fn(), emitOne: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -47,6 +50,7 @@ describe('ExpensesService', () => {
         ExpensesService,
         { provide: PrismaService, useValue: prisma },
         { provide: GroupAccessService, useValue: access },
+        { provide: NotificationEmitter, useValue: emitter },
       ],
     }).compile();
     service = module.get(ExpensesService);

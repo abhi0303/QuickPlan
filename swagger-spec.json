@@ -902,6 +902,224 @@
         ]
       }
     },
+    "/api/notifications": {
+      "get": {
+        "operationId": "NotificationsController_list",
+        "summary": "Notification feed, newest first",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor from the previous page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "all",
+              "enum": [
+                "all",
+                "unread"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationListDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notifications/unread-count": {
+      "get": {
+        "operationId": "NotificationsController_unreadCount",
+        "summary": "Unread total, cheap enough to poll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCountDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notifications/read": {
+      "patch": {
+        "operationId": "NotificationsController_markRead",
+        "summary": "Mark notifications read. Idempotent.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkReadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCountDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notifications/vapid-public-key": {
+      "get": {
+        "operationId": "NotificationsController_getVapidPublicKey",
+        "summary": "VAPID public key the browser subscribes with",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notifications/subscribe": {
+      "post": {
+        "operationId": "NotificationsController_subscribe",
+        "summary": "Save PWA Web Push subscription endpoint & keys",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribePushDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "delete": {
+        "operationId": "NotificationsController_unsubscribe",
+        "summary": "Forget a push subscription for this device",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnsubscribePushDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notifications/test": {
+      "post": {
+        "operationId": "NotificationsController_sendTest",
+        "summary": "Send a test push to the caller's own devices",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notifications/{id}": {
+      "delete": {
+        "operationId": "NotificationsController_remove",
+        "summary": "Dismiss a single notification",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteNotificationDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
     "/api/groups/{groupId}/settlements": {
       "post": {
         "operationId": "SettlementsController_create",
@@ -1118,124 +1336,6 @@
         },
         "tags": [
           "AI Smart Input"
-        ]
-      }
-    },
-    "/api/notifications/vapid-public-key": {
-      "get": {
-        "operationId": "NotificationsController_getVapidPublicKey",
-        "summary": "VAPID public key the browser subscribes with",
-        "parameters": [
-          {
-            "name": "x-user-id",
-            "in": "header",
-            "description": "User ID header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Notifications"
-        ]
-      }
-    },
-    "/api/notifications/subscribe": {
-      "post": {
-        "operationId": "NotificationsController_subscribe",
-        "summary": "Save PWA Web Push subscription endpoint & keys",
-        "parameters": [
-          {
-            "name": "x-user-id",
-            "in": "header",
-            "description": "User ID header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SubscribePushDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Notifications"
-        ]
-      },
-      "delete": {
-        "operationId": "NotificationsController_unsubscribe",
-        "summary": "Forget a push subscription for this device",
-        "parameters": [
-          {
-            "name": "x-user-id",
-            "in": "header",
-            "description": "User ID header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UnsubscribePushDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Notifications"
-        ]
-      }
-    },
-    "/api/notifications/test": {
-      "post": {
-        "operationId": "NotificationsController_sendTest",
-        "summary": "Send a test push to the caller's own devices",
-        "parameters": [
-          {
-            "name": "x-user-id",
-            "in": "header",
-            "description": "User ID header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Notifications"
         ]
       }
     },
@@ -1548,7 +1648,54 @@
       },
       "UpdateTaskDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title of the task",
+            "example": "Call Rahul to discuss project"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional notes or sub-details",
+            "example": "Review report beforehand"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "IN_PROGRESS",
+              "COMPLETED"
+            ],
+            "description": "Task current status",
+            "example": "PENDING"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "URGENT"
+            ],
+            "description": "Task priority level",
+            "example": "HIGH"
+          },
+          "category": {
+            "type": "string",
+            "description": "Task category / tag",
+            "example": "Work"
+          },
+          "dueDate": {
+            "type": "string",
+            "description": "Due date in ISO 8601 string format",
+            "example": "2026-08-20T10:00:00.000Z"
+          },
+          "isCompleted": {
+            "type": "boolean",
+            "description": "Completion status flag",
+            "example": false
+          }
+        }
       },
       "CreateReminderDto": {
         "type": "object",
@@ -1595,20 +1742,24 @@
           },
           "dueAt": {
             "type": "string",
-            "description": "Due moment, ISO 8601 (UTC)"
+            "description": "Due moment, ISO 8601 (UTC)",
+            "example": "2026-08-20T17:00:00.000Z"
+          },
+          "taskId": {
+            "type": "string",
+            "description": "Associated task id",
+            "example": "tsk-101"
           },
           "offsetMinutes": {
             "type": "number",
             "description": "Alert this many minutes before dueAt",
-            "example": 30
+            "example": 30,
+            "default": 0
           },
           "recurrenceRule": {
             "type": "string",
-            "description": "DAILY, WEEKDAYS, WEEKLY or MONTHLY"
-          },
-          "taskId": {
-            "type": "string",
-            "description": "Associated task id"
+            "description": "DAILY, WEEKDAYS, WEEKLY or MONTHLY",
+            "example": "DAILY"
           }
         }
       },
@@ -1681,7 +1832,48 @@
       },
       "UpdateExpenseDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Dinner at Toit"
+          },
+          "description": {
+            "type": "string"
+          },
+          "totalAmount": {
+            "type": "number",
+            "example": 1200
+          },
+          "paidById": {
+            "type": "string",
+            "description": "Who paid. Defaults to you. Must be a group member."
+          },
+          "splitType": {
+            "type": "string",
+            "enum": [
+              "EQUAL",
+              "EXACT",
+              "PERCENTAGE"
+            ],
+            "default": "EQUAL"
+          },
+          "shares": {
+            "description": "EQUAL: members to split between, defaults to everyone. EXACT: amounts. PERCENTAGE: percents.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseShareInputDto"
+            }
+          },
+          "category": {
+            "type": "string",
+            "description": "Drives the category breakdown charts",
+            "example": "Food"
+          },
+          "date": {
+            "type": "string",
+            "description": "When it happened, ISO 8601. Defaults to now."
+          }
+        }
       },
       "CreateGroupDto": {
         "type": "object",
@@ -1770,47 +1962,151 @@
           "userId"
         ]
       },
-      "CreateSettlementDto": {
+      "NotificationActorDto": {
         "type": "object",
         "properties": {
-          "toUserId": {
-            "type": "string",
-            "description": "Member who received the money"
+          "id": {
+            "type": "string"
           },
-          "amount": {
-            "type": "number",
-            "example": 500
-          },
-          "fromUserId": {
+          "name": {
             "type": "string",
-            "description": "Who paid. Defaults to you."
-          },
-          "note": {
-            "type": "string",
-            "example": "Paid by UPI"
-          },
-          "settledAt": {
-            "type": "string",
-            "description": "When it was paid, ISO 8601. Defaults to now."
+            "nullable": true
           }
         },
         "required": [
-          "toUserId",
-          "amount"
+          "id",
+          "name"
         ]
       },
-      "SmartInputDto": {
+      "NotificationDto": {
         "type": "object",
         "properties": {
-          "text": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
             "type": "string",
-            "description": "Natural language text or voice transcript in Hindi, English, or Hinglish",
-            "example": "Kal 5 baje Rahul ko pizza ke 100 rupee dene hain aur 30 minute pehle yaad dila dena"
+            "enum": [
+              "FRIEND_ADDED",
+              "GROUP_MEMBER_ADDED",
+              "GROUP_MEMBER_REMOVED",
+              "GROUP_ROLE_CHANGED",
+              "GROUP_DELETED",
+              "EXPENSE_ADDED",
+              "EXPENSE_UPDATED",
+              "EXPENSE_DELETED",
+              "SETTLEMENT_RECORDED",
+              "REMINDER_LEAD",
+              "REMINDER_DUE",
+              "TASK_DUE"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "example": "Added to Goa trip"
+          },
+          "body": {
+            "type": "string",
+            "example": "Abhinav added you to Goa trip."
+          },
+          "url": {
+            "type": "string",
+            "description": "App path, no origin",
+            "example": "/groups/7c9e"
+          },
+          "actor": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NotificationActorDto"
+              }
+            ]
+          },
+          "groupId": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityId": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "object",
+            "example": {}
+          },
+          "readAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "required": [
-          "text"
+          "id",
+          "type",
+          "title",
+          "body",
+          "url",
+          "data",
+          "createdAt"
         ]
+      },
+      "NotificationListDto": {
+        "type": "object",
+        "properties": {
+          "unreadCount": {
+            "type": "number",
+            "description": "Total unread for the user, not just this page",
+            "example": 3
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "null on the last page"
+          }
+        },
+        "required": [
+          "unreadCount",
+          "items",
+          "nextCursor"
+        ]
+      },
+      "UnreadCountDto": {
+        "type": "object",
+        "properties": {
+          "unreadCount": {
+            "type": "number",
+            "example": 3
+          }
+        },
+        "required": [
+          "unreadCount"
+        ]
+      },
+      "MarkReadDto": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "description": "Notification ids to mark read. Required unless `all` is true.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "all": {
+            "type": "boolean",
+            "description": "Mark every notification read"
+          }
+        }
       },
       "SubscribePushDto": {
         "type": "object",
@@ -1854,6 +2150,63 @@
           "endpoint"
         ]
       },
+      "DeleteNotificationDto": {
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "type": "boolean"
+          },
+          "unreadCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "deleted",
+          "unreadCount"
+        ]
+      },
+      "CreateSettlementDto": {
+        "type": "object",
+        "properties": {
+          "toUserId": {
+            "type": "string",
+            "description": "Member who received the money"
+          },
+          "amount": {
+            "type": "number",
+            "example": 500
+          },
+          "fromUserId": {
+            "type": "string",
+            "description": "Who paid. Defaults to you."
+          },
+          "note": {
+            "type": "string",
+            "example": "Paid by UPI"
+          },
+          "settledAt": {
+            "type": "string",
+            "description": "When it was paid, ISO 8601. Defaults to now."
+          }
+        },
+        "required": [
+          "toUserId",
+          "amount"
+        ]
+      },
+      "SmartInputDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Natural language text or voice transcript in Hindi, English, or Hinglish",
+            "example": "Kal 5 baje Rahul ko pizza ke 100 rupee dene hain aur 30 minute pehle yaad dila dena"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
       "CreateUserDto": {
         "type": "object",
         "properties": {
@@ -1882,7 +2235,24 @@
       },
       "UpdateUserDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "User full name (mandatory)",
+            "example": "Abhi Sharma"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email address (mandatory)",
+            "example": "abhi@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "Account password (mandatory)",
+            "example": "strong-password",
+            "minLength": 8
+          }
+        }
       },
       "UpdateSettingsDto": {
         "type": "object",

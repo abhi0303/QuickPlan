@@ -3,7 +3,9 @@ import { GroupRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { GroupAccessService } from '../groups/group-access.service';
 import { CreateSettlementDto } from './dto/create-settlement.dto';
-import { toDecimal, toNumber } from '../common/money';
+import { formatMoney, toDecimal, toNumber } from '../common/money';
+import { NotificationEmitter } from '../notifications/notification-emitter.service';
+import { settlementRecorded } from '../notifications/notification-events';
 
 const SETTLEMENT_INCLUDE = {
   from: { select: { id: true, name: true, email: true } },
@@ -15,6 +17,7 @@ export class SettlementsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: GroupAccessService,
+    private readonly emitter: NotificationEmitter,
   ) {}
 
   /**
@@ -52,6 +55,28 @@ export class SettlementsService {
       },
       include: SETTLEMENT_INCLUDE,
     });
+
+    // The counterparty is the one who needs to know a payment was logged
+    // against them; the person recording it already does.
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      select: { currency: true },
+    });
+    const actor = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+
+    await this.emitter.emitOne(
+      settlementRecorded(
+        dto.toUserId,
+        userId,
+        actor?.name ?? 'Someone',
+        groupId,
+        settlement.id,
+        formatMoney(settlement.amount, group?.currency ?? 'INR'),
+      ),
+    );
 
     return this.present(settlement);
   }

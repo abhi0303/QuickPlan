@@ -5,6 +5,7 @@ import { GroupsService } from './groups.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { FriendsService } from '../friends/friends.service';
 import { GroupAccessService } from './group-access.service';
+import { NotificationEmitter } from '../notifications/notification-emitter.service';
 
 const d = (v: string | number) => new Prisma.Decimal(v);
 
@@ -12,15 +13,17 @@ describe('GroupsService', () => {
   let service: GroupsService;
 
   const prisma = {
-    group: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn(), delete: jest.fn() },
+    group: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn().mockResolvedValue({ name: 'G', members: [] }), update: jest.fn(), delete: jest.fn() },
     groupMember: { findMany: jest.fn(), findUnique: jest.fn(), createMany: jest.fn(), delete: jest.fn(), update: jest.fn(), count: jest.fn() },
     expense: { groupBy: jest.fn().mockResolvedValue([]) },
     expenseShare: { groupBy: jest.fn().mockResolvedValue([]) },
     settlement: { findMany: jest.fn().mockResolvedValue([]) },
+    user: { findUnique: jest.fn().mockResolvedValue({ name: 'Actor' }) },
   };
 
   const friends = { areFriends: jest.fn().mockResolvedValue(true) };
   const access = { requireMembership: jest.fn(), requireOwner: jest.fn(), memberGroupIds: jest.fn() };
+  const emitter = { emit: jest.fn(), emitOne: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -35,6 +38,7 @@ describe('GroupsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: FriendsService, useValue: friends },
         { provide: GroupAccessService, useValue: access },
+        { provide: NotificationEmitter, useValue: emitter },
       ],
     }).compile();
     service = module.get(GroupsService);
