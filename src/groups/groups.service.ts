@@ -6,6 +6,13 @@ import { GroupAccessService } from './group-access.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { suggestSettlements, toNumber, ZERO } from '../common/money';
+import { NotificationEmitter } from '../notifications/notification-emitter.service';
+import {
+  groupDeleted,
+  groupMemberAdded,
+  groupMemberRemoved,
+  groupRoleChanged,
+} from '../notifications/notification-events';
 
 const MEMBER_INCLUDE = {
   members: {
@@ -20,6 +27,7 @@ export class GroupsService {
     private readonly prisma: PrismaService,
     private readonly friendsService: FriendsService,
     private readonly access: GroupAccessService,
+    private readonly emitter: NotificationEmitter,
   ) {}
 
   /**
@@ -31,7 +39,7 @@ export class GroupsService {
 
     await this.assertAllAreFriends(userId, memberIds);
 
-    return this.prisma.group.create({
+    const group = await this.prisma.group.create({
       data: {
         name: dto.name,
         description: dto.description,
@@ -46,6 +54,37 @@ export class GroupsService {
       },
       include: MEMBER_INCLUDE,
     });
+
+    await this.notifyMembersAdded(userId, group.id, group.name, memberIds);
+
+    return group;
+  }
+
+  /** One row per person added, never for the person doing the adding. */
+  private async notifyMembersAdded(
+    actorId: string,
+    groupId: string,
+    groupName: string,
+    memberIds: string[],
+  ) {
+    if (memberIds.length === 0) {
+      return;
+    }
+
+    const actorName = await this.nameOf(actorId);
+
+    await this.emitter.emit(
+      memberIds.map((id) => groupMemberAdded(id, actorId, actorName, groupId, groupName)),
+    );
+  }
+
+  private async nameOf(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+
+    return user?.name ?? 'Someone';
   }
 
   /** Only groups the caller belongs to, each with the caller's own net position. */
@@ -120,7 +159,25 @@ export class GroupsService {
    */
   async remove(userId: string, groupId: string) {
     await this.access.requireOwner(userId, groupId);
+
+    // Read the roster before the cascade removes it - afterwards there is
+    // nobody left to tell.
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      include: { members: { select: { userId: true } } },
+    });
+
     await this.prisma.group.delete({ where: { id: groupId } });
+
+    if (group) {
+      const actorName = await this.nameOf(userId);
+
+      await this.emitter.emit(
+        group.members
+          .filter((m) => m.userId !== userId)
+          .map((m) => groupDeleted(m.userId, userId, actorName, groupId, group.name)),
+      );
+    }
 
     return { deleted: true, groupId };
   }
@@ -131,10 +188,26 @@ export class GroupsService {
     const unique = [...new Set(memberIds)];
     await this.assertAllAreFriends(userId, unique);
 
+    // Work out who is genuinely new before inserting, so re-adding an existing
+    // member does not notify them a second time.
+    const existing = await this.prisma.groupMember.findMany({
+      where: { groupId, userId: { in: unique } },
+      select: { userId: true },
+    });
+    const existingIds = new Set(existing.map((m) => m.userId));
+    const added = unique.filter((id) => !existingIds.has(id));
+
     await this.prisma.groupMember.createMany({
       data: unique.map((id) => ({ groupId, userId: id, role: GroupRole.MEMBER })),
       skipDuplicates: true,
     });
+
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      select: { name: true },
+    });
+
+    await this.notifyMembersAdded(userId, groupId, group?.name ?? 'a group', added);
 
     return this.findOne(userId, groupId);
   }
@@ -183,6 +256,18 @@ export class GroupsService {
 
     await this.prisma.groupMember.delete({ where: { id: target.id } });
 
+    // Leaving of your own accord needs no notification.
+    if (!isSelf) {
+      const [actorName, group] = await Promise.all([
+        this.nameOf(userId),
+        this.prisma.group.findUnique({ where: { id: groupId }, select: { name: true } }),
+      ]);
+
+      await this.emitter.emitOne(
+        groupMemberRemoved(memberId, userId, actorName, groupId, group?.name ?? 'a group'),
+      );
+    }
+
     return { removed: true, userId: memberId };
   }
 
@@ -207,7 +292,30 @@ export class GroupsService {
       }
     }
 
-    return this.prisma.groupMember.update({ where: { id: target.id }, data: { role } });
+    const updated = await this.prisma.groupMember.update({
+      where: { id: target.id },
+      data: { role },
+    });
+
+    if (memberId !== userId && target.role !== role) {
+      const [actorName, group] = await Promise.all([
+        this.nameOf(userId),
+        this.prisma.group.findUnique({ where: { id: groupId }, select: { name: true } }),
+      ]);
+
+      await this.emitter.emitOne(
+        groupRoleChanged(
+          memberId,
+          userId,
+          actorName,
+          groupId,
+          group?.name ?? 'a group',
+          role === GroupRole.OWNER,
+        ),
+      );
+    }
+
+    return updated;
   }
 
   /**

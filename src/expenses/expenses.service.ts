@@ -5,7 +5,13 @@ import { GroupAccessService } from '../groups/group-access.service';
 import { CreateExpenseDto, ExpenseShareInputDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { QueryExpensesDto } from './dto/query-expenses.dto';
-import { splitEvenly, toDecimal, toNumber } from '../common/money';
+import { formatMoney, splitEvenly, toDecimal, toNumber } from '../common/money';
+import { NotificationEmitter } from '../notifications/notification-emitter.service';
+import {
+  expenseAdded,
+  expenseDeleted,
+  expenseUpdated,
+} from '../notifications/notification-events';
 
 const EXPENSE_INCLUDE = {
   paidBy: { select: { id: true, name: true, email: true } },
@@ -20,6 +26,7 @@ export class ExpensesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: GroupAccessService,
+    private readonly emitter: NotificationEmitter,
   ) {}
 
   /** Decimal would serialise as a string, so amounts are converted here. */
@@ -70,6 +77,32 @@ export class ExpensesService {
     });
 
     await this.touchGroup(groupId);
+
+    // Everyone with a share hears about it except the payer and the person who
+    // recorded it - both already know.
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      select: { name: true, currency: true },
+    });
+    const actorName = await this.nameOf(userId);
+
+    await this.emitter.emit(
+      expense.shares
+        .filter((share) => share.userId !== userId && share.userId !== paidById)
+        .map((share) =>
+          expenseAdded(
+            share.userId,
+            userId,
+            actorName,
+            groupId,
+            group?.name ?? 'a group',
+            expense.id,
+            expense.title,
+            // The recipient's own share, not the total.
+            formatMoney(share.amount, group?.currency ?? 'INR'),
+          ),
+        ),
+    );
 
     return this.present(expense, userId);
   }
@@ -132,6 +165,13 @@ export class ExpensesService {
     const expense = await this.requireEditable(userId, expenseId);
     const memberIds = await this.memberIds(expense.groupId);
 
+    // Snapshot so we can tell whose share genuinely changed.
+    const previousShares = await this.prisma.expenseShare.findMany({
+      where: { expenseId },
+      select: { userId: true, amount: true },
+    });
+    const sharesBefore = new Map(previousShares.map((s) => [s.userId, s.amount]));
+
     const paidById = dto.paidById ?? expense.paidById;
 
     if (!memberIds.includes(paidById)) {
@@ -169,15 +209,87 @@ export class ExpensesService {
 
     await this.touchGroup(expense.groupId);
 
+    // Only tell people whose own share actually moved. A rename should not
+    // ping the whole group.
+    const group = await this.prisma.group.findUnique({
+      where: { id: expense.groupId },
+      select: { name: true, currency: true },
+    });
+    const actorName = await this.nameOf(userId);
+
+    await this.emitter.emit(
+      updated.shares
+        .filter((share) => {
+          if (share.userId === userId) {
+            return false;
+          }
+
+          const before = sharesBefore.get(share.userId);
+
+          return before === undefined || !before.equals(share.amount);
+        })
+        .map((share) =>
+          expenseUpdated(
+            share.userId,
+            userId,
+            actorName,
+            expense.groupId,
+            expense.id,
+            updated.title,
+            formatMoney(share.amount, group?.currency ?? 'INR'),
+          ),
+        ),
+    );
+
     return this.present(updated, userId);
   }
 
   async remove(userId: string, expenseId: string) {
     const expense = await this.requireEditable(userId, expenseId);
+
+    // Read the shares before the cascade takes them, so we know who to tell.
+    const [shares, group] = await Promise.all([
+      this.prisma.expenseShare.findMany({
+        where: { expenseId },
+        select: { userId: true },
+      }),
+      this.prisma.group.findUnique({
+        where: { id: expense.groupId },
+        select: { name: true },
+      }),
+    ]);
+
     await this.prisma.expense.delete({ where: { id: expenseId } });
     await this.touchGroup(expense.groupId);
 
+    const actorName = await this.nameOf(userId);
+
+    await this.emitter.emit(
+      shares
+        .filter((share) => share.userId !== userId)
+        .map((share) =>
+          expenseDeleted(
+            share.userId,
+            userId,
+            actorName,
+            expense.groupId,
+            group?.name ?? 'a group',
+            expenseId,
+            expense.title,
+          ),
+        ),
+    );
+
     return { deleted: true, expenseId };
+  }
+
+  private async nameOf(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+
+    return user?.name ?? 'Someone';
   }
 
   private async requireEditable(userId: string, expenseId: string) {

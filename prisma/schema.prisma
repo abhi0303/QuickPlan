@@ -14,6 +14,21 @@ enum GroupRole {
   MEMBER
 }
 
+enum NotificationType {
+  FRIEND_ADDED
+  GROUP_MEMBER_ADDED
+  GROUP_MEMBER_REMOVED
+  GROUP_ROLE_CHANGED
+  GROUP_DELETED
+  EXPENSE_ADDED
+  EXPENSE_UPDATED
+  EXPENSE_DELETED
+  SETTLEMENT_RECORDED
+  REMINDER_LEAD
+  REMINDER_DUE
+  TASK_DUE
+}
+
 enum SplitType {
   EQUAL
   EXACT
@@ -32,16 +47,18 @@ model User {
   tasks         Task[]
   settings      UserSettings?
 
-  friendsAdded       Friendship[]   @relation("FriendshipOwner")
-  friendsOf          Friendship[]   @relation("FriendshipTarget")
-  memberships        GroupMember[]
-  groupsCreated      Group[]        @relation("GroupCreator")
-  expensesPaid       Expense[]      @relation("ExpensePaidBy")
-  expensesCreated    Expense[]      @relation("ExpenseCreatedBy")
-  shares             ExpenseShare[]
-  settlementsPaid    Settlement[]   @relation("SettlementFrom")
-  settlementsGot     Settlement[]   @relation("SettlementTo")
-  settlementsCreated Settlement[]   @relation("SettlementCreatedBy")
+  friendsAdded        Friendship[]   @relation("FriendshipOwner")
+  friendsOf           Friendship[]   @relation("FriendshipTarget")
+  memberships         GroupMember[]
+  groupsCreated       Group[]        @relation("GroupCreator")
+  expensesPaid        Expense[]      @relation("ExpensePaidBy")
+  expensesCreated     Expense[]      @relation("ExpenseCreatedBy")
+  shares              ExpenseShare[]
+  settlementsPaid     Settlement[]   @relation("SettlementFrom")
+  settlementsGot      Settlement[]   @relation("SettlementTo")
+  settlementsCreated  Settlement[]   @relation("SettlementCreatedBy")
+  notifications       Notification[] @relation("NotificationRecipient")
+  notificationsCaused Notification[] @relation("NotificationActor")
 }
 
 model UserSettings {
@@ -231,4 +248,37 @@ model PushSubscription {
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// One row per recipient per event. Written by the same emit path that sends
+/// the push, so a missed banner can always be found in the bell menu.
+model Notification {
+  id        String           @id @default(uuid())
+  /// The recipient, never the actor.
+  userId    String
+  type      NotificationType
+  /// Wording is composed server-side so the push banner and the feed row read
+  /// identically.
+  title     String
+  body      String
+  /// App path, not an absolute URL - the service worker resolves it against
+  /// the app scope.
+  url       String
+  actorId   String?
+  /// groupId and entityId are deliberately plain columns rather than foreign
+  /// keys: a GROUP_DELETED or EXPENSE_DELETED notification has to outlive the
+  /// row it refers to.
+  groupId   String?
+  entityId  String?
+  data      Json?
+  readAt    DateTime?
+  /// When a push actually went out, for debugging silent devices.
+  pushedAt  DateTime?
+  createdAt DateTime         @default(now())
+
+  user  User  @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
 }
