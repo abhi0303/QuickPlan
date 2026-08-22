@@ -1,43 +1,24 @@
-import { IsEnum, IsInt, IsISO8601, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsInt, IsISO8601, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ExpenseStatus, ExpenseType } from '@prisma/client';
-
-export enum ExpenseDirection {
-  I_OWE = 'I_OWE',
-  OWED_TO_ME = 'OWED_TO_ME',
-}
 
 export class QueryExpensesDto {
-  @ApiPropertyOptional({
-    enum: ExpenseDirection,
-    description: 'I_OWE lists money you must pay, OWED_TO_ME money due to you',
-  })
+  @ApiPropertyOptional({ description: 'Only expenses in this category' })
   @IsOptional()
-  @IsEnum(ExpenseDirection)
-  direction?: ExpenseDirection;
+  @IsString()
+  category?: string;
 
-  @ApiPropertyOptional({ enum: ExpenseType })
-  @IsOptional()
-  @IsEnum(ExpenseType)
-  type?: ExpenseType;
-
-  @ApiPropertyOptional({ enum: ExpenseStatus })
-  @IsOptional()
-  @IsEnum(ExpenseStatus)
-  status?: ExpenseStatus;
-
-  @ApiPropertyOptional({ description: 'Only expenses involving this contact' })
+  @ApiPropertyOptional({ description: 'Only expenses paid by this member' })
   @IsOptional()
   @IsUUID()
-  personId?: string;
+  paidById?: string;
 
-  @ApiPropertyOptional({ description: 'Created on or after (ISO 8601)' })
+  @ApiPropertyOptional({ description: 'On or after this date (ISO 8601)' })
   @IsOptional()
   @IsISO8601()
   from?: string;
 
-  @ApiPropertyOptional({ description: 'Created on or before (ISO 8601)' })
+  @ApiPropertyOptional({ description: 'On or before this date (ISO 8601)' })
   @IsOptional()
   @IsISO8601()
   to?: string;

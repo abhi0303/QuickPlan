@@ -7,7 +7,10 @@ import { PrismaModule } from './prisma/prisma.module';
 import { TasksModule } from './tasks/tasks.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { ExpensesModule } from './expenses/expenses.module';
-import { PeopleModule } from './people/people.module';
+import { FriendsModule } from './friends/friends.module';
+import { GroupsModule } from './groups/groups.module';
+import { SettlementsModule } from './settlements/settlements.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { AiModule } from './ai/ai.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UserModule } from './user/user.module';
@@ -21,7 +24,10 @@ import { AuthModule } from './auth/auth.module';
     TasksModule,
     RemindersModule,
     ExpensesModule,
-    PeopleModule,
+    FriendsModule,
+    GroupsModule,
+    SettlementsModule,
+    AnalyticsModule,
     AiModule,
     NotificationsModule,
     UserModule,

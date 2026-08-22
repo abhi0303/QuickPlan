@@ -1,209 +1,196 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Prisma } from '@prisma/client';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { GroupRole, Prisma, SplitType } from '@prisma/client';
 import { ExpensesService } from './expenses.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { PeopleService } from '../people/people.service';
-import { IOUDirection } from './dto/create-iou.dto';
-import { ExpenseDirection } from './dto/query-expenses.dto';
+import { GroupAccessService } from '../groups/group-access.service';
 
 describe('ExpensesService', () => {
   let service: ExpensesService;
 
-  // Mirrors what Prisma returns for the service's include: participants come
-  // back as an array, not as the nested `create` payload that was written.
-  const expenseCreate = jest.fn(({ data }) =>
+  const MEMBERS = ['u1', 'u2', 'u3'];
+
+  const created = jest.fn(({ data, include }) =>
     Promise.resolve({
-      id: 'expense-1',
+      id: 'e1',
+      groupId: 'g1',
       ...data,
-      paidBy: null,
-      participants: (data.participants?.create ?? []).map((p: any, i: number) => ({
-        id: `part-${i}`,
-        personId: p.person?.connect?.id ?? null,
-        person: null,
-        ...p,
+      paidBy: { id: data.paidById, name: 'Payer' },
+      createdBy: { id: data.createdById, name: 'Author' },
+      shares: (data.shares?.create ?? []).map((s: any, i: number) => ({
+        id: `s${i}`,
+        ...s,
+        user: { id: s.userId, name: s.userId },
       })),
     }),
   );
 
-  const mockPrismaService = {
-    expense: {
-      create: expenseCreate,
-      findFirst: jest.fn(),
-      findMany: jest.fn().mockResolvedValue([]),
-      update: jest.fn(),
-    },
-    expenseParticipant: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      update: jest.fn(),
-      count: jest.fn(),
-      aggregate: jest.fn(),
-    },
+  const prisma = {
+    expense: { create: created, findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), update: jest.fn(), delete: jest.fn() },
+    expenseShare: { deleteMany: jest.fn(), createMany: jest.fn() },
+    groupMember: { findMany: jest.fn().mockResolvedValue(MEMBERS.map((userId) => ({ userId }))) },
+    group: { update: jest.fn() },
+    $transaction: jest.fn((fn) => fn(prisma)),
   };
 
-  const mockPeopleService = {
-    findOrCreateByName: jest.fn((userId: string, name: string) =>
-      Promise.resolve({ id: `person-${name}`, userId, name }),
-    ),
+  const access = {
+    requireMembership: jest.fn().mockResolvedValue({ role: GroupRole.MEMBER }),
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    prisma.groupMember.findMany.mockResolvedValue(MEMBERS.map((userId) => ({ userId })));
+    access.requireMembership.mockResolvedValue({ role: GroupRole.MEMBER });
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ExpensesService,
-        { provide: PrismaService, useValue: mockPrismaService },
-        { provide: PeopleService, useValue: mockPeopleService },
+        { provide: PrismaService, useValue: prisma },
+        { provide: GroupAccessService, useValue: access },
       ],
     }).compile();
-
-    service = module.get<ExpensesService>(ExpensesService);
+    service = module.get(ExpensesService);
   });
 
-  describe('splitExpense', () => {
-    it('splits evenly when the amount divides cleanly', async () => {
-      const result = await service.splitExpense('user-1', {
-        title: 'Pizza Night',
-        totalAmount: 500,
-        participantsCount: 5,
-        paidByMe: true,
-      });
+  const sharesOf = () =>
+    created.mock.calls[0][0].data.shares.create as Array<{ userId: string; amount: Prisma.Decimal }>;
 
-      expect(result.myShare).toBe(100);
-      expect(result.othersOweTotal).toBe(400);
-      expect(result.direction).toBe(ExpenseDirection.OWED_TO_ME);
+  describe('splitting', () => {
+    it('splits equally across every member by default', async () => {
+      await service.create('u1', 'g1', { title: 'Dinner', totalAmount: 1200 });
+
+      expect(sharesOf().map((s) => s.amount.toString())).toEqual(['400', '400', '400']);
     });
 
-    it('assigns the rounding remainder so shares sum to the exact total', async () => {
-      await service.splitExpense('user-1', {
-        title: 'Dinner',
-        totalAmount: 100,
-        participantsCount: 3,
-        paidByMe: true,
-      });
-
-      const shares: Prisma.Decimal[] = expenseCreate.mock.calls[0][0].data.participants.create.map(
-        (p: any) => p.shareAmount,
-      );
-      const sum = shares.reduce((a, b) => a.add(b), new Prisma.Decimal(0));
-
-      expect(sum.toString()).toBe('100');
-      expect(shares.map((s) => s.toString())).toEqual(['33.34', '33.33', '33.33']);
-    });
-
-    it('records that I owe my share when somebody else paid', async () => {
-      const result = await service.splitExpense('user-1', {
+    it('splits equally across only the named members', async () => {
+      await service.create('u1', 'g1', {
         title: 'Cab',
-        totalAmount: 300,
-        participantsCount: 3,
-        paidByMe: false,
-        names: ['Priya', 'Rahul'],
+        totalAmount: 100,
+        shares: [{ userId: 'u1', value: 0 }, { userId: 'u2', value: 0 }],
       });
 
-      const data = expenseCreate.mock.calls[0][0].data;
-      expect(data.paidByMe).toBe(false);
-      expect(data.paidById).toBe('person-Priya');
-      expect(result.youOweTotal).toBe(100);
-      expect(result.othersOweTotal).toBe(0);
-      expect(result.direction).toBe(ExpenseDirection.I_OWE);
-
-      // The payer does not owe themselves.
-      const payerRow = data.participants.create.find(
-        (p: any) => p.person?.connect?.id === 'person-Priya',
-      );
-      expect(payerRow.status).toBe('PAID');
+      expect(sharesOf().map((s) => s.userId)).toEqual(['u1', 'u2']);
+      expect(sharesOf().map((s) => s.amount.toString())).toEqual(['50', '50']);
     });
 
-    it('rejects a split someone else paid without naming the payer', async () => {
+    it('rejects exact shares that do not add up to the total', async () => {
       await expect(
-        service.splitExpense('user-1', {
-          title: 'Cab',
-          totalAmount: 300,
-          participantsCount: 3,
-          paidByMe: false,
+        service.create('u1', 'g1', {
+          title: 'Dinner',
+          totalAmount: 1000,
+          splitType: SplitType.EXACT,
+          shares: [{ userId: 'u1', value: 400 }, { userId: 'u2', value: 400 }],
         }),
-      ).rejects.toThrow(/who paid/i);
+      ).rejects.toThrow(/add up to 800.*total is 1000/);
     });
 
-    it('rejects more names than there are other participants', async () => {
+    it('accepts exact shares that balance', async () => {
+      await service.create('u1', 'g1', {
+        title: 'Dinner',
+        totalAmount: 1000,
+        splitType: SplitType.EXACT,
+        shares: [{ userId: 'u1', value: 600 }, { userId: 'u2', value: 400 }],
+      });
+
+      expect(sharesOf().map((s) => s.amount.toString())).toEqual(['600', '400']);
+    });
+
+    it('rejects percentages that do not total 100', async () => {
       await expect(
-        service.splitExpense('user-1', {
-          title: 'Cab',
-          totalAmount: 300,
-          participantsCount: 2,
-          names: ['Priya', 'Rahul'],
+        service.create('u1', 'g1', {
+          title: 'Rent',
+          totalAmount: 900,
+          splitType: SplitType.PERCENTAGE,
+          shares: [{ userId: 'u1', value: 50 }, { userId: 'u2', value: 30 }],
         }),
-      ).rejects.toThrow(/names given/i);
+      ).rejects.toThrow(/add up to 80, not 100/);
+    });
+
+    it('keeps percentage shares summing to the exact total', async () => {
+      await service.create('u1', 'g1', {
+        title: 'Rent',
+        totalAmount: 100,
+        splitType: SplitType.PERCENTAGE,
+        shares: [
+          { userId: 'u1', value: 33.33 },
+          { userId: 'u2', value: 33.33 },
+          { userId: 'u3', value: 33.34 },
+        ],
+      });
+
+      const total = sharesOf().reduce((a, s) => a.add(s.amount), new Prisma.Decimal(0));
+      expect(total.toString()).toBe('100');
+    });
+
+    it('refuses a share for someone outside the group', async () => {
+      await expect(
+        service.create('u1', 'g1', {
+          title: 'Dinner',
+          totalAmount: 100,
+          splitType: SplitType.EXACT,
+          shares: [{ userId: 'outsider', value: 100 }],
+        }),
+      ).rejects.toThrow(/member of this group/);
+    });
+
+    it('refuses a payer outside the group', async () => {
+      await expect(
+        service.create('u1', 'g1', { title: 'Dinner', totalAmount: 100, paidById: 'outsider' }),
+      ).rejects.toThrow(/payer must be a member/);
+    });
+
+    it('refuses the same member twice in one split', async () => {
+      await expect(
+        service.create('u1', 'g1', {
+          title: 'Dinner',
+          totalAmount: 100,
+          splitType: SplitType.EXACT,
+          shares: [{ userId: 'u1', value: 50 }, { userId: 'u1', value: 50 }],
+        }),
+      ).rejects.toThrow(/more than once/);
     });
   });
 
-  describe('createIOU', () => {
-    it('marks the contact as payer for money I owe', async () => {
-      const result = await service.createIOU('user-1', {
-        personName: 'Rahul',
-        amount: 100,
-        direction: IOUDirection.PAYABLE,
-        reason: 'Pizza',
+  describe('permissions', () => {
+    it('hides an expense in a group the caller does not belong to', async () => {
+      prisma.expense.findUnique.mockResolvedValue({ id: 'e1', groupId: 'other' });
+      access.requireMembership.mockRejectedValue(new NotFoundException());
+
+      await expect(service.findOne('outsider', 'e1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('stops a member editing an expense somebody else recorded', async () => {
+      prisma.expense.findUnique.mockResolvedValue({ id: 'e1', groupId: 'g1', createdById: 'u2' });
+      access.requireMembership.mockResolvedValue({ role: GroupRole.MEMBER });
+
+      await expect(service.update('u1', 'e1', { title: 'x' })).rejects.toThrow(ForbiddenException);
+    });
+
+    it('lets a group owner edit anyone\'s expense', async () => {
+      prisma.expense.findUnique.mockResolvedValue({
+        id: 'e1', groupId: 'g1', createdById: 'u2', paidById: 'u2',
+        totalAmount: new Prisma.Decimal(100), splitType: SplitType.EQUAL,
+      });
+      access.requireMembership.mockResolvedValue({ role: GroupRole.OWNER });
+      prisma.expense.update.mockResolvedValue({
+        id: 'e1', totalAmount: new Prisma.Decimal(100), paidById: 'u2',
+        shares: [], paidBy: {}, createdBy: {},
       });
 
-      const data = expenseCreate.mock.calls[0][0].data;
-      expect(data.type).toBe('IOU_PAYABLE');
-      expect(data.paidByMe).toBe(false);
-      expect(data.paidById).toBe('person-Rahul');
-      expect(result.direction).toBe(ExpenseDirection.I_OWE);
-
-      // One debt, one row - writing both sides double-counted every total.
-      expect(data.participants.create).toHaveLength(1);
-      expect(data.participants.create[0].isMe).toBe(true);
+      await expect(service.update('u1', 'e1', { title: 'Renamed' })).resolves.toBeDefined();
     });
 
-    it('keeps the amount on the contact for money owed to me', async () => {
-      const result = await service.createIOU('user-1', {
-        personName: 'Rahul',
-        amount: 250,
-        direction: IOUDirection.RECEIVABLE,
+    it('lets the author edit their own expense', async () => {
+      prisma.expense.findUnique.mockResolvedValue({
+        id: 'e1', groupId: 'g1', createdById: 'u1', paidById: 'u1',
+        totalAmount: new Prisma.Decimal(100), splitType: SplitType.EQUAL,
+      });
+      prisma.expense.update.mockResolvedValue({
+        id: 'e1', totalAmount: new Prisma.Decimal(100), paidById: 'u1',
+        shares: [], paidBy: {}, createdBy: {},
       });
 
-      const data = expenseCreate.mock.calls[0][0].data;
-      expect(data.type).toBe('IOU_RECEIVABLE');
-      expect(data.paidByMe).toBe(true);
-      expect(data.paidById).toBeNull();
-      expect(result.direction).toBe(ExpenseDirection.OWED_TO_ME);
-      expect(data.participants.create[0].isMe).toBe(false);
-    });
-  });
-
-  describe('findAll filtering', () => {
-    it('translates direction into a paidByMe predicate', async () => {
-      await service.findAll('user-1', { direction: ExpenseDirection.I_OWE });
-      expect(mockPrismaService.expense.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ userId: 'user-1', paidByMe: false }),
-        }),
-      );
-
-      await service.findAll('user-1', { direction: ExpenseDirection.OWED_TO_ME });
-      expect(mockPrismaService.expense.findMany).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ paidByMe: true }),
-        }),
-      );
-    });
-
-    it('matches a contact as either payer or participant', async () => {
-      await service.findAll('user-1', { personId: 'person-Rahul' });
-      const where = mockPrismaService.expense.findMany.mock.calls[0][0].where;
-      expect(where.OR).toEqual([
-        { paidById: 'person-Rahul' },
-        { participants: { some: { personId: 'person-Rahul' } } },
-      ]);
-    });
-
-    it('bounds the page size by default', async () => {
-      await service.findAll('user-1');
-      expect(mockPrismaService.expense.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: 50, skip: 0 }),
-      );
+      await expect(service.update('u1', 'e1', { title: 'Renamed' })).resolves.toBeDefined();
     });
   });
 });
