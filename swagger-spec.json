@@ -1335,6 +1335,91 @@
         ]
       }
     },
+    "/api/onboarding": {
+      "get": {
+        "operationId": "OnboardingController_getTour",
+        "summary": "Tour steps, whether to show it, and where to resume",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Onboarding"
+        ]
+      }
+    },
+    "/api/onboarding/progress": {
+      "patch": {
+        "operationId": "OnboardingController_saveProgress",
+        "summary": "Record the step the user reached",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTourProgressDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Onboarding"
+        ]
+      }
+    },
+    "/api/onboarding/complete": {
+      "post": {
+        "operationId": "OnboardingController_complete",
+        "summary": "Mark the tour finished. Idempotent.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Onboarding"
+        ]
+      }
+    },
+    "/api/onboarding/skip": {
+      "post": {
+        "operationId": "OnboardingController_skip",
+        "summary": "Dismiss the tour. Counts as finished.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Onboarding"
+        ]
+      }
+    },
+    "/api/onboarding/restart": {
+      "post": {
+        "operationId": "OnboardingController_restart",
+        "summary": "Replay the tour from the start (Settings → Guide)",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Onboarding"
+        ]
+      }
+    },
     "/api/v1/smart-input": {
       "post": {
         "operationId": "SmartInputController_processInput",
@@ -2269,6 +2354,21 @@
         "required": [
           "toUserId",
           "amount"
+        ]
+      },
+      "UpdateTourProgressDto": {
+        "type": "object",
+        "properties": {
+          "step": {
+            "type": "number",
+            "description": "Last step the user reached, 1-based. Progress never moves backwards.",
+            "minimum": 1,
+            "maximum": 7,
+            "example": 3
+          }
+        },
+        "required": [
+          "step"
         ]
       },
       "SmartInputDto": {

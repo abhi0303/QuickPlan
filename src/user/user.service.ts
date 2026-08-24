@@ -5,10 +5,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { OnboardingService } from '../onboarding/onboarding.service';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private onboarding: OnboardingService,
+  ) {}
 
   async createUser(dto: CreateUserDto) {
     if (!dto?.name || !dto.name.trim() || !dto?.email || !dto.email.trim()) {
@@ -106,7 +110,10 @@ export class UserService {
 
   async getUserProfile(userId: string) {
     const user = await this.ensureUserExists(userId);
-    return user;
+
+    // Embedded so the client can decide whether to open the tour on login
+    // without a second round trip.
+    return { ...user, onboarding: this.onboarding.summarise(user) };
   }
 
   async updateUserProfile(userId: string, dto: UpdateUserDto) {

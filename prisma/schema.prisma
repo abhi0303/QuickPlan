@@ -66,20 +66,27 @@ enum SplitType {
 }
 
 model User {
-  id            String             @id @default(uuid())
-  email         String?            @unique
-  name          String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  passwordHash  String?
+  id                    String             @id @default(uuid())
+  email                 String?            @unique
+  name                  String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  passwordHash          String?
   /// Only the running total and the derived level are stored. Level bands and
   /// rank names are static config, never duplicated per user.
-  totalXp       Int                @default(0)
-  currentLevel  Int                @default(1)
-  subscriptions PushSubscription[]
-  reminders     Reminder[]
-  tasks         Task[]
-  settings      UserSettings?
+  totalXp               Int                @default(0)
+  currentLevel          Int                @default(1)
+  /// Which version of the tour this user finished. Kept as a number rather than
+  /// a boolean so a materially changed tour can be shown again without a
+  /// migration or a per-user reset.
+  onboardingVersion     Int                @default(0)
+  /// Last step reached, so a tour abandoned halfway resumes where it stopped.
+  onboardingStep        Int                @default(0)
+  onboardingCompletedAt DateTime?
+  subscriptions         PushSubscription[]
+  reminders             Reminder[]
+  tasks                 Task[]
+  settings              UserSettings?
 
   friendsAdded        Friendship[]   @relation("FriendshipOwner")
   friendsOf           Friendship[]   @relation("FriendshipTarget")
