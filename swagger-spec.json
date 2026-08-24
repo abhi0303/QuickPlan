@@ -1671,6 +1671,17 @@
             "type": "boolean",
             "description": "Completion status flag",
             "example": false
+          },
+          "createdVia": {
+            "type": "string",
+            "enum": [
+              "MANUAL",
+              "VOICE",
+              "IMPORT",
+              "SYSTEM"
+            ],
+            "default": "MANUAL",
+            "description": "How this task was created. The client parses speech on-device and posts here, so VOICE has to come from the caller."
           }
         },
         "required": [
@@ -1725,6 +1736,17 @@
             "type": "boolean",
             "description": "Completion status flag",
             "example": false
+          },
+          "createdVia": {
+            "type": "string",
+            "enum": [
+              "MANUAL",
+              "VOICE",
+              "IMPORT",
+              "SYSTEM"
+            ],
+            "default": "MANUAL",
+            "description": "How this task was created. The client parses speech on-device and posts here, so VOICE has to come from the caller."
           }
         }
       },
@@ -1756,6 +1778,17 @@
             "type": "string",
             "description": "Recurrence rule: DAILY, WEEKLY, WEEKDAYS, MONTHLY",
             "example": "DAILY"
+          },
+          "createdVia": {
+            "type": "string",
+            "enum": [
+              "MANUAL",
+              "VOICE",
+              "IMPORT",
+              "SYSTEM"
+            ],
+            "default": "MANUAL",
+            "description": "How this reminder was created. The client parses speech on-device and posts here, so VOICE has to come from the caller."
           }
         },
         "required": [
@@ -1791,6 +1824,17 @@
             "type": "string",
             "description": "DAILY, WEEKDAYS, WEEKLY or MONTHLY",
             "example": "DAILY"
+          },
+          "createdVia": {
+            "type": "string",
+            "enum": [
+              "MANUAL",
+              "VOICE",
+              "IMPORT",
+              "SYSTEM"
+            ],
+            "default": "MANUAL",
+            "description": "How this reminder was created. The client parses speech on-device and posts here, so VOICE has to come from the caller."
           }
         }
       },

@@ -18,8 +18,11 @@ export class TasksService {
    * passes VOICE, everything else defaults to MANUAL. It is what lets a
    * voice-only mission count the right tasks.
    */
-  async create(userId: string, dto: CreateTaskDto, createdVia: CreatedVia = CreatedVia.MANUAL) {
+  async create(userId: string, dto: CreateTaskDto, createdVia?: CreatedVia) {
     const completed = dto.isCompleted || false;
+    // The explicit argument wins for internal callers such as smart-input; the
+    // DTO field is how the web client reports its own on-device voice parsing.
+    const via = createdVia ?? dto.createdVia ?? CreatedVia.MANUAL;
 
     const task = await this.prisma.task.create({
       data: {
@@ -32,7 +35,7 @@ export class TasksService {
         dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
         isCompleted: completed,
         completedAt: completed ? new Date() : null,
-        createdVia,
+        createdVia: via,
       },
     });
 
