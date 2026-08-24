@@ -1304,6 +1304,37 @@
         ]
       }
     },
+    "/api/gamification": {
+      "get": {
+        "operationId": "GamificationController_getState",
+        "summary": "XP, level, rank and the three current missions",
+        "description": "Also retires an expired cycle and deals a new one, so the response is always current.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Gamification"
+        ]
+      }
+    },
+    "/api/gamification/catalogue": {
+      "get": {
+        "operationId": "GamificationController_getCatalogue",
+        "summary": "Static mission definitions, for resolving titles and icons by type",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Gamification"
+        ]
+      }
+    },
     "/api/v1/smart-input": {
       "post": {
         "operationId": "SmartInputController_processInput",
@@ -1998,7 +2029,9 @@
               "SETTLEMENT_RECORDED",
               "REMINDER_LEAD",
               "REMINDER_DUE",
-              "TASK_DUE"
+              "TASK_DUE",
+              "MISSION_COMPLETED",
+              "LEVEL_UP"
             ]
           },
           "title": {

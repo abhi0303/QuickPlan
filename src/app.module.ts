@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -11,6 +12,7 @@ import { FriendsModule } from './friends/friends.module';
 import { GroupsModule } from './groups/groups.module';
 import { SettlementsModule } from './settlements/settlements.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { GamificationModule } from './gamification/gamification.module';
 import { AiModule } from './ai/ai.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UserModule } from './user/user.module';
@@ -20,6 +22,7 @@ import { AuthModule } from './auth/auth.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
+    EventEmitterModule.forRoot(),
     PrismaModule,
     TasksModule,
     RemindersModule,
@@ -28,6 +31,7 @@ import { AuthModule } from './auth/auth.module';
     GroupsModule,
     SettlementsModule,
     AnalyticsModule,
+    GamificationModule,
     AiModule,
     NotificationsModule,
     UserModule,

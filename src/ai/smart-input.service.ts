@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { CreatedVia } from '@prisma/client';
 import { AiService, ExtractedIntent } from './ai.service';
 import { TasksService } from '../tasks/tasks.service';
 import { RemindersService } from '../reminders/reminders.service';
@@ -38,19 +39,24 @@ export class SmartInputService {
       default: {
         const { title, dueDate, reminderOffsetMinutes, category } = parseResult.payload;
 
-        createdEntity = await this.tasksService.create(userId, {
-          title,
-          dueDate,
-          category,
-        });
+        // Marked VOICE so voice-only missions count it and manual ones do not.
+        createdEntity = await this.tasksService.create(
+          userId,
+          { title, dueDate, category },
+          CreatedVia.VOICE,
+        );
 
         if (dueDate && parseResult.needsClarification !== true) {
-          await this.remindersService.create(userId, {
-            taskId: createdEntity.id,
-            title: `Task Reminder: ${title}`,
-            dueAt: dueDate,
-            offsetMinutes: reminderOffsetMinutes || 15,
-          });
+          await this.remindersService.create(
+            userId,
+            {
+              taskId: createdEntity.id,
+              title: `Task Reminder: ${title}`,
+              dueAt: dueDate,
+              offsetMinutes: reminderOffsetMinutes || 15,
+            },
+            CreatedVia.VOICE,
+          );
         }
 
         message = parseResult.needsClarification

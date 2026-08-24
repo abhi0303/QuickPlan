@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { GroupRole, Prisma, SplitType } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
+import { ACTIVITY_EVENT, ActivityEvent } from '../gamification/gamification.events';
 import { GroupAccessService } from '../groups/group-access.service';
 import { CreateExpenseDto, ExpenseShareInputDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
@@ -27,6 +29,7 @@ export class ExpensesService {
     private readonly prisma: PrismaService,
     private readonly access: GroupAccessService,
     private readonly emitter: NotificationEmitter,
+    private readonly events: EventEmitter2,
   ) {}
 
   /** Decimal would serialise as a string, so amounts are converted here. */
@@ -77,6 +80,10 @@ export class ExpensesService {
     });
 
     await this.touchGroup(groupId);
+
+    // Fire and forget: gamification listens, the expense flow does not wait on
+    // it and never fails because of it.
+    this.events.emit(ACTIVITY_EVENT, new ActivityEvent('EXPENSE_CREATED', userId));
 
     // Everyone with a share hears about it except the payer and the person who
     // recorded it - both already know.

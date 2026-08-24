@@ -4,6 +4,7 @@ import { GroupRole, Prisma, SplitType } from '@prisma/client';
 import { ExpensesService } from './expenses.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GroupAccessService } from '../groups/group-access.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NotificationEmitter } from '../notifications/notification-emitter.service';
 
 describe('ExpensesService', () => {
@@ -51,6 +52,7 @@ describe('ExpensesService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: GroupAccessService, useValue: access },
         { provide: NotificationEmitter, useValue: emitter },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
     service = module.get(ExpensesService);

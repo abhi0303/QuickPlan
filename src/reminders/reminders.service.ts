@@ -1,20 +1,30 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CreatedVia } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ACTIVITY_EVENT, ActivityEvent } from '../gamification/gamification.events';
 import { CreateReminderDto } from './dto/create-reminder.dto';
 import { UpdateReminderDto } from './dto/update-reminder.dto';
 import { leadTime, nextOccurrence } from './recurrence';
 
 @Injectable()
 export class RemindersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private events: EventEmitter2,
+  ) {}
 
   /**
    * dueAt is stored as the moment the reminder is for. It used to be saved
    * already reduced by offsetMinutes, which meant the API reported the lead-in
    * time as the due time and left no way to alert at both moments.
    */
-  async create(userId: string, dto: CreateReminderDto) {
-    return this.prisma.reminder.create({
+  async create(
+    userId: string,
+    dto: CreateReminderDto,
+    createdVia: CreatedVia = CreatedVia.MANUAL,
+  ) {
+    const reminder = await this.prisma.reminder.create({
       data: {
         userId,
         taskId: dto.taskId || null,
@@ -23,8 +33,13 @@ export class RemindersService {
         offsetMinutes: dto.offsetMinutes || 0,
         recurrenceRule: dto.recurrenceRule || null,
         status: 'PENDING',
+        createdVia,
       },
     });
+
+    this.events.emit(ACTIVITY_EVENT, new ActivityEvent('REMINDER_CREATED', userId));
+
+    return reminder;
   }
 
   /**

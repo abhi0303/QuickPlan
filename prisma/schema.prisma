@@ -14,6 +14,34 @@ enum GroupRole {
   MEMBER
 }
 
+/// How an entity got created. The mission engine uses this to tell a
+/// voice-created task from a typed one.
+enum CreatedVia {
+  MANUAL
+  VOICE
+  IMPORT
+  SYSTEM
+}
+
+enum MissionStatus {
+  ACTIVE
+  COMPLETED
+  EXPIRED
+}
+
+/// Adding a type here plus one entry in the mission catalogue is all a new
+/// mission needs - no schema change and no engine rewrite.
+enum MissionType {
+  EXPENSE_COUNT
+  EXPENSE_CATEGORY_COUNT
+  EXPENSE_DAY_COUNT
+  TASK_CREATE_COUNT
+  TASK_CREATE_VOICE_COUNT
+  TASK_COMPLETE_COUNT
+  REMINDER_CREATE_COUNT
+  REMINDER_CREATE_VOICE_COUNT
+}
+
 enum NotificationType {
   FRIEND_ADDED
   GROUP_MEMBER_ADDED
@@ -27,6 +55,8 @@ enum NotificationType {
   REMINDER_LEAD
   REMINDER_DUE
   TASK_DUE
+  MISSION_COMPLETED
+  LEVEL_UP
 }
 
 enum SplitType {
@@ -42,6 +72,10 @@ model User {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   passwordHash  String?
+  /// Only the running total and the derived level are stored. Level bands and
+  /// rank names are static config, never duplicated per user.
+  totalXp       Int                @default(0)
+  currentLevel  Int                @default(1)
   subscriptions PushSubscription[]
   reminders     Reminder[]
   tasks         Task[]
@@ -59,6 +93,7 @@ model User {
   settlementsCreated  Settlement[]   @relation("SettlementCreatedBy")
   notifications       Notification[] @relation("NotificationRecipient")
   notificationsCaused Notification[] @relation("NotificationActor")
+  missions            UserMission[]
 }
 
 model UserSettings {
@@ -85,6 +120,10 @@ model Task {
   category    String     @default("General")
   dueDate     DateTime?
   isCompleted Boolean    @default(false)
+  /// Set when the task is first marked done, so "complete 3 tasks this cycle"
+  /// can be counted without a separate history table.
+  completedAt DateTime?
+  createdVia  CreatedVia @default(MANUAL)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   reminders   Reminder[]
@@ -94,25 +133,26 @@ model Task {
 }
 
 model Reminder {
-  id             String    @id @default(uuid())
+  id             String     @id @default(uuid())
   userId         String
   taskId         String?
   title          String
   /// The moment the reminder is for. The lead-in alert is derived from this
   /// and offsetMinutes; it is never stored in place of it.
   dueAt          DateTime
-  offsetMinutes  Int       @default(0)
+  offsetMinutes  Int        @default(0)
   recurrenceRule String?
-  status         String    @default("PENDING")
-  pushSent       Boolean   @default(false)
+  status         String     @default("PENDING")
+  pushSent       Boolean    @default(false)
   /// Set when each of the two alerts has gone out, so a restart cannot resend
   /// and a passed reminder cannot fire on every tick.
   sentLeadAt     DateTime?
   sentDueAt      DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  task           Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdVia     CreatedVia @default(MANUAL)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  task           Task?      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status, dueAt])
@@ -169,22 +209,25 @@ model GroupMember {
 }
 
 model Expense {
-  id          String    @id @default(uuid())
+  id          String     @id @default(uuid())
   groupId     String
   title       String
   description String?
-  totalAmount Decimal   @db.Decimal(12, 2)
-  currency    String    @default("INR")
+  totalAmount Decimal    @db.Decimal(12, 2)
+  currency    String     @default("INR")
   /// Who actually paid. Must be a member of the group.
   paidById    String
   createdById String
-  splitType   SplitType @default(EQUAL)
+  splitType   SplitType  @default(EQUAL)
+  /// Expenses have no voice flow today; this exists so the mission engine reads
+  /// the same field everywhere.
+  createdVia  CreatedVia @default(MANUAL)
   /// Category drives the breakdown charts, and date drives the time series -
   /// both are indexed because the analytics endpoints group on them.
-  category    String    @default("General")
-  date        DateTime  @default(now())
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  category    String     @default("General")
+  date        DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   group     Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
   paidBy    User           @relation("ExpensePaidBy", fields: [paidById], references: [id])
@@ -281,4 +324,24 @@ model Notification {
 
   @@index([userId, createdAt])
   @@index([userId, readAt])
+}
+
+/// Only the current cycle is kept - at most three rows per user. Expired sets
+/// are deleted rather than archived, so this table never grows with history.
+model UserMission {
+  id        String        @id @default(uuid())
+  userId    String
+  type      MissionType
+  target    Int
+  progress  Int           @default(0)
+  status    MissionStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// One mission of a given type per user, so a cycle cannot contain duplicates.
+  @@unique([userId, type])
+  @@index([userId, status])
+  @@index([expiresAt])
 }
