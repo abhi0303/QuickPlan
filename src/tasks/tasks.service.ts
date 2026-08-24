@@ -1,14 +1,27 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CreatedVia } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ACTIVITY_EVENT, ActivityEvent } from '../gamification/gamification.events';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 
 @Injectable()
 export class TasksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private events: EventEmitter2,
+  ) {}
 
-  async create(userId: string, dto: CreateTaskDto) {
-    return this.prisma.task.create({
+  /**
+   * `createdVia` comes from the caller, not the client body - the voice flow
+   * passes VOICE, everything else defaults to MANUAL. It is what lets a
+   * voice-only mission count the right tasks.
+   */
+  async create(userId: string, dto: CreateTaskDto, createdVia: CreatedVia = CreatedVia.MANUAL) {
+    const completed = dto.isCompleted || false;
+
+    const task = await this.prisma.task.create({
       data: {
         userId,
         title: dto.title,
@@ -17,9 +30,19 @@ export class TasksService {
         priority: dto.priority || 'MEDIUM',
         category: dto.category || 'General',
         dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
-        isCompleted: dto.isCompleted || false,
+        isCompleted: completed,
+        completedAt: completed ? new Date() : null,
+        createdVia,
       },
     });
+
+    this.events.emit(ACTIVITY_EVENT, new ActivityEvent('TASK_CREATED', userId));
+
+    if (completed) {
+      this.events.emit(ACTIVITY_EVENT, new ActivityEvent('TASK_COMPLETED', userId));
+    }
+
+    return task;
   }
 
   async findAll(userId: string, filter?: { view?: string; category?: string; priority?: string }) {
@@ -80,21 +103,29 @@ export class TasksService {
   }
 
   async update(userId: string, id: string, dto: UpdateTaskDto) {
-    await this.findOne(userId, id);
+    const existing = await this.findOne(userId, id);
 
     const data: any = { ...dto };
     if (dto.dueDate) {
       data.dueDate = new Date(dto.dueDate);
     }
 
+    // Stamped on the first completion only, so re-saving a done task does not
+    // move it into a later mission cycle.
+    const justCompleted = dto.isCompleted === true && !existing.isCompleted;
+
     if (dto.isCompleted !== undefined) {
       data.status = dto.isCompleted ? 'COMPLETED' : 'PENDING';
+      data.completedAt = dto.isCompleted ? existing.completedAt ?? new Date() : null;
     }
 
-    return this.prisma.task.update({
-      where: { id },
-      data,
-    });
+    const task = await this.prisma.task.update({ where: { id }, data });
+
+    if (justCompleted) {
+      this.events.emit(ACTIVITY_EVENT, new ActivityEvent('TASK_COMPLETED', userId));
+    }
+
+    return task;
   }
 
   async remove(userId: string, id: string) {
