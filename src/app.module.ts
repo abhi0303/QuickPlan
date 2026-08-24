@@ -13,6 +13,7 @@ import { GroupsModule } from './groups/groups.module';
 import { SettlementsModule } from './settlements/settlements.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { GamificationModule } from './gamification/gamification.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
 import { AiModule } from './ai/ai.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UserModule } from './user/user.module';
@@ -32,6 +33,7 @@ import { AuthModule } from './auth/auth.module';
     SettlementsModule,
     AnalyticsModule,
     GamificationModule,
+    OnboardingModule,
     AiModule,
     NotificationsModule,
     UserModule,

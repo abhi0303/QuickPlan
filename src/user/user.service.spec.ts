@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { OnboardingService } from '../onboarding/onboarding.service';
 
 describe('UserService (Add User & Profile Flow)', () => {
   let service: UserService;
@@ -22,6 +23,10 @@ describe('UserService (Add User & Profile Flow)', () => {
       providers: [
         UserService,
         { provide: PrismaService, useValue: mockPrismaService },
+        {
+          provide: OnboardingService,
+          useValue: { summarise: jest.fn().mockReturnValue({ shouldShow: true }) },
+        },
       ],
     }).compile();
 
