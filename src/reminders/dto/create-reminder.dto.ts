@@ -1,4 +1,6 @@
-import { IsString, IsDateString, IsOptional, IsNumber, Min } from 'class-validator';
+import {
+  IsEnum, IsString, IsDateString, IsOptional, IsNumber, Min } from 'class-validator';
+import { CreatedVia } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateReminderDto {
@@ -25,4 +27,14 @@ export class CreateReminderDto {
   @IsOptional()
   @IsString()
   recurrenceRule?: string;
+
+  @ApiPropertyOptional({
+    enum: CreatedVia,
+    default: CreatedVia.MANUAL,
+    description:
+      'How this reminder was created. The client parses speech on-device and posts here, so VOICE has to come from the caller.',
+  })
+  @IsOptional()
+  @IsEnum(CreatedVia)
+  createdVia?: CreatedVia;
 }

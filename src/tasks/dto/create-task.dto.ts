@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsEnum, IsBoolean, IsDateString } from 'class-validator';
+import { CreatedVia } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum TaskPriority {
@@ -48,4 +49,14 @@ export class CreateTaskDto {
   @IsOptional()
   @IsBoolean()
   isCompleted?: boolean;
+
+  @ApiPropertyOptional({
+    enum: CreatedVia,
+    default: CreatedVia.MANUAL,
+    description:
+      'How this task was created. The client parses speech on-device and posts here, so VOICE has to come from the caller.',
+  })
+  @IsOptional()
+  @IsEnum(CreatedVia)
+  createdVia?: CreatedVia;
 }

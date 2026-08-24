@@ -19,11 +19,11 @@ export class RemindersService {
    * already reduced by offsetMinutes, which meant the API reported the lead-in
    * time as the due time and left no way to alert at both moments.
    */
-  async create(
-    userId: string,
-    dto: CreateReminderDto,
-    createdVia: CreatedVia = CreatedVia.MANUAL,
-  ) {
+  async create(userId: string, dto: CreateReminderDto, createdVia?: CreatedVia) {
+    // The explicit argument wins for internal callers such as smart-input; the
+    // DTO field is how the web client reports its own on-device voice parsing.
+    const via = createdVia ?? dto.createdVia ?? CreatedVia.MANUAL;
+
     const reminder = await this.prisma.reminder.create({
       data: {
         userId,
@@ -33,7 +33,7 @@ export class RemindersService {
         offsetMinutes: dto.offsetMinutes || 0,
         recurrenceRule: dto.recurrenceRule || null,
         status: 'PENDING',
-        createdVia,
+        createdVia: via,
       },
     });
 
