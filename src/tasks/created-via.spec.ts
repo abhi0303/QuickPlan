@@ -4,6 +4,7 @@ import { CreatedVia } from '@prisma/client';
 import { TasksService } from './tasks.service';
 import { RemindersService } from '../reminders/reminders.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CalendarTokenService } from '../reminders/calendar-token.service';
 
 /**
  * The web client parses speech on-device and posts to the normal create
@@ -29,6 +30,7 @@ describe('createdVia on create', () => {
         RemindersService,
         { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: events },
+        { provide: CalendarTokenService, useValue: { mint: jest.fn(), verify: jest.fn() } },
       ],
     }).compile();
     tasks = module.get(TasksService);

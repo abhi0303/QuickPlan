@@ -156,6 +156,9 @@ model Reminder {
   sentLeadAt     DateTime?
   sentDueAt      DateTime?
   createdVia     CreatedVia @default(MANUAL)
+  /// iCalendar SEQUENCE. Bumped on every edit, because calendar clients ignore
+  /// a re-imported event whose sequence has not moved.
+  sequence       Int        @default(0)
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   task           Task?      @relation(fields: [taskId], references: [id], onDelete: Cascade)
