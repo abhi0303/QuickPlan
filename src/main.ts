@@ -27,7 +27,10 @@ async function bootstrap() {
     origin: allowedOrigins.length ? allowedOrigins : true,
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
+    // Idempotency-Key is a custom header, so the browser preflights every
+    // mutation. Omit it and the OPTIONS fails and every browser write breaks -
+    // not just the offline ones. curl does not preflight, so it hides this.
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'Idempotency-Key'],
     maxAge: 86400,
   });
   app.useGlobalPipes(

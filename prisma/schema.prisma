@@ -355,3 +355,25 @@ model UserMission {
   @@index([userId, status])
   @@index([expiresAt])
 }
+
+/// Replay cache for retried mutations. A request that succeeded but whose
+/// response was lost on the way back is the common failure on a flaky mobile
+/// network; without this the client's retry creates a second row.
+model IdempotencyKey {
+  /// Client-generated, created once when the mutation is queued and reused on
+  /// every retry.
+  key         String
+  /// Scoped per user: the same key from a different account is a different
+  /// request, and one user must never be able to read another's stored response.
+  userId      String
+  /// sha256 of the raw body, so a key reused with different content is caught
+  /// rather than silently answered with the wrong response.
+  requestHash String
+  /// Null while the original request is still running.
+  status      Int?
+  response    Json?
+  createdAt   DateTime @default(now())
+
+  @@id([userId, key])
+  @@index([createdAt])
+}
