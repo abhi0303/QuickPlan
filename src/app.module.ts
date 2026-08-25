@@ -14,6 +14,7 @@ import { SettlementsModule } from './settlements/settlements.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { GamificationModule } from './gamification/gamification.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
+import { IdempotencyModule } from './idempotency/idempotency.module';
 import { AiModule } from './ai/ai.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UserModule } from './user/user.module';
@@ -34,6 +35,7 @@ import { AuthModule } from './auth/auth.module';
     AnalyticsModule,
     GamificationModule,
     OnboardingModule,
+    IdempotencyModule,
     AiModule,
     NotificationsModule,
     UserModule,
