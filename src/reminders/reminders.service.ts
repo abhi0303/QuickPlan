@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { GoneException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreatedVia } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,12 +6,15 @@ import { ACTIVITY_EVENT, ActivityEvent } from '../gamification/gamification.even
 import { CreateReminderDto } from './dto/create-reminder.dto';
 import { UpdateReminderDto } from './dto/update-reminder.dto';
 import { leadTime, nextOccurrence } from './recurrence';
+import { buildIcs, icsFilename } from './ics';
+import { CalendarTokenService } from './calendar-token.service';
 
 @Injectable()
 export class RemindersService {
   constructor(
     private prisma: PrismaService,
     private events: EventEmitter2,
+    private calendarTokens: CalendarTokenService,
   ) {}
 
   /**
@@ -69,6 +72,9 @@ export class RemindersService {
         ...(reschedules
           ? { sentLeadAt: null, sentDueAt: null, pushSent: false, status: 'PENDING' }
           : {}),
+        // Calendar clients ignore a re-imported event whose SEQUENCE has not
+        // moved, so every edit has to advance it.
+        sequence: { increment: 1 },
       },
       include: { task: true },
     });
@@ -161,5 +167,66 @@ export class RemindersService {
 
   leadTimeFor(dueAt: Date, offsetMinutes: number): Date {
     return leadTime(dueAt, offsetMinutes);
+  }
+
+  /**
+   * Mints a short-lived link the browser can navigate to. A navigation cannot
+   * carry an Authorization header, which is why the file endpoint authenticates
+   * from the token instead.
+   */
+  async createCalendarLink(userId: string, reminderId: string, baseUrl: string) {
+    const reminder = await this.prisma.reminder.findFirst({
+      where: { id: reminderId, userId },
+      select: { id: true },
+    });
+
+    if (!reminder) {
+      throw new NotFoundException(`Reminder with ID ${reminderId} not found`);
+    }
+
+    const { token, expiresAt } = this.calendarTokens.mint(reminderId, userId);
+
+    return {
+      url: `${baseUrl}/api/reminders/${reminderId}/calendar.ics?token=${token}`,
+      expiresAt,
+    };
+  }
+
+  /**
+   * Resolves a token into the file. The token must match the reminder in the
+   * path, so a link for one reminder cannot be pointed at another.
+   */
+  async getCalendarFile(reminderId: string, token: string) {
+    const verdict = this.calendarTokens.verify(token);
+
+    if (!verdict.ok) {
+      throw verdict.reason === 'EXPIRED'
+        ? new GoneException('This calendar link has expired. Please generate a new one.')
+        : new NotFoundException('Calendar link not found.');
+    }
+
+    if (verdict.reminderId !== reminderId) {
+      throw new NotFoundException('Calendar link not found.');
+    }
+
+    const reminder = await this.prisma.reminder.findFirst({
+      where: { id: reminderId, userId: verdict.userId },
+    });
+
+    if (!reminder) {
+      throw new NotFoundException('Calendar link not found.');
+    }
+
+    return {
+      filename: icsFilename(reminder.title),
+      body: buildIcs({
+        id: reminder.id,
+        title: reminder.title,
+        dueAt: reminder.dueAt,
+        offsetMinutes: reminder.offsetMinutes,
+        recurrenceRule: reminder.recurrenceRule,
+        sequence: reminder.sequence,
+      }),
+    };
   }
 }

@@ -379,6 +379,80 @@
         ]
       }
     },
+    "/api/reminders/{id}/calendar-link": {
+      "post": {
+        "operationId": "RemindersController_createCalendarLink",
+        "summary": "Mint a short-lived link the browser can navigate to for an .ics file",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reminders"
+        ]
+      }
+    },
+    "/api/reminders/{id}/calendar.ics": {
+      "get": {
+        "operationId": "RemindersController_getCalendarFile",
+        "summary": "The iCalendar file for a reminder, authorised by token",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reminders"
+        ]
+      }
+    },
     "/api/groups/{groupId}/expenses": {
       "post": {
         "operationId": "ExpensesController_create",
