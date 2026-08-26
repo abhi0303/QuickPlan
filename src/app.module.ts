@@ -17,6 +17,7 @@ import { OnboardingModule } from './onboarding/onboarding.module';
 import { IdempotencyModule } from './idempotency/idempotency.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { RecurringModule } from './recurring/recurring.module';
+import { PlannerModule } from './planner/planner.module';
 import { AiModule } from './ai/ai.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UserModule } from './user/user.module';
@@ -40,6 +41,7 @@ import { AuthModule } from './auth/auth.module';
     IdempotencyModule,
     BudgetsModule,
     RecurringModule,
+    PlannerModule,
     AiModule,
     NotificationsModule,
     UserModule,

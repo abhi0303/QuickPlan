@@ -60,6 +60,11 @@ enum BudgetStatus {
   EXCEEDED
 }
 
+enum PlanItemSource {
+  RECURRING
+  CATEGORY
+}
+
 enum RecurringCadence {
   DAILY
   WEEKLY
@@ -138,6 +143,7 @@ model User {
   missions            UserMission[]
   budgets             Budget[]
   recurringExpenses   RecurringExpense[]
+  plans               BudgetPlan[]
 }
 
 model UserSettings {
@@ -497,4 +503,47 @@ model RecurringExpense {
 
   @@index([nextRunAt])
   @@index([userId])
+}
+
+/// Income in, commitments and an estimate out, and the number left over.
+/// Archived rather than edited when income changes, so last month's plan keeps
+/// the income that was in force - and so "you are saving more than in June"
+/// stays answerable.
+model BudgetPlan {
+  id            String    @id @default(uuid())
+  userId        String
+  /// The most sensitive field the app holds. It must never reach logs,
+  /// analytics or a notification payload.
+  monthlyIncome Decimal   @db.Decimal(12, 2)
+  savingsTarget Decimal?  @db.Decimal(12, 2)
+  archivedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items BudgetPlanItem[]
+
+  @@index([userId, archivedAt])
+}
+
+/// Items reference, they do not snapshot: a RECURRING item stores the id and
+/// reads the schedule's current amount, so when rent goes up the plan follows.
+/// Only `included` and `amountOverride` are the user's own data.
+model BudgetPlanItem {
+  id             String         @id @default(uuid())
+  planId         String
+  source         PlanItemSource
+  recurringId    String?
+  category       String?
+  included       Boolean        @default(true)
+  /// Null means "keep tracking the live value".
+  amountOverride Decimal?       @db.Decimal(12, 2)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  plan BudgetPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, recurringId])
+  @@unique([planId, category])
+  @@index([planId])
 }
