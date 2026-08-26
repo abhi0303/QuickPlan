@@ -1633,6 +1633,332 @@
         ]
       }
     },
+    "/api/budgets": {
+      "get": {
+        "operationId": "BudgetsController_list",
+        "summary": "Your active budgets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Budgets"
+        ]
+      },
+      "post": {
+        "operationId": "BudgetsController_create",
+        "summary": "Set a budget. Omit category for an overall one.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBudgetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Budgets"
+        ]
+      }
+    },
+    "/api/budgets/status": {
+      "get": {
+        "operationId": "BudgetsController_status",
+        "summary": "Everything the rings need: spent, remaining, projected and status",
+        "parameters": [
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "description": "\"2026-08\" for monthly, \"2026-W34\" for weekly. Defaults to the current period.",
+            "schema": {
+              "example": "2026-08",
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "MONTHLY",
+              "enum": [
+                "MONTHLY",
+                "WEEKLY"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Budgets"
+        ]
+      }
+    },
+    "/api/budgets/suggest": {
+      "get": {
+        "operationId": "BudgetsController_suggest",
+        "summary": "Last period's spending, to pre-fill a budget nobody knows how to size",
+        "parameters": [
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Category to suggest a budget for",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "MONTHLY",
+              "enum": [
+                "MONTHLY",
+                "WEEKLY"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "PERSONAL",
+              "enum": [
+                "PERSONAL",
+                "ALL"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Budgets"
+        ]
+      }
+    },
+    "/api/budgets/{id}": {
+      "patch": {
+        "operationId": "BudgetsController_update",
+        "summary": "Change the amount or scope",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBudgetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Budgets"
+        ]
+      },
+      "delete": {
+        "operationId": "BudgetsController_archive",
+        "summary": "Archive a budget — past periods keep the limit that was in force",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Budgets"
+        ]
+      }
+    },
+    "/api/recurring": {
+      "get": {
+        "operationId": "RecurringController_list",
+        "summary": "Your recurring expenses with their next run date",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Recurring expenses"
+        ]
+      },
+      "post": {
+        "operationId": "RecurringController_create",
+        "summary": "Schedule a repeating expense",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecurringDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Recurring expenses"
+        ]
+      }
+    },
+    "/api/recurring/{id}": {
+      "patch": {
+        "operationId": "RecurringController_update",
+        "summary": "Edit, pause or resume",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRecurringDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Recurring expenses"
+        ]
+      },
+      "delete": {
+        "operationId": "RecurringController_remove",
+        "summary": "Stop the schedule. Expenses it created stay.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Recurring expenses"
+        ]
+      }
+    },
+    "/api/recurring/{id}/skip-next": {
+      "post": {
+        "operationId": "RecurringController_skipNext",
+        "summary": "Move the next run on by one cadence, creating nothing",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Recurring expenses"
+        ]
+      }
+    },
+    "/api/recurring/{id}/run-now": {
+      "post": {
+        "operationId": "RecurringController_runNow",
+        "summary": "Create this period's expense early",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Recurring expenses"
+        ]
+      }
+    },
     "/api/v1/smart-input": {
       "post": {
         "operationId": "SmartInputController_processInput",
@@ -2414,7 +2740,9 @@
               "REMINDER_DUE",
               "TASK_DUE",
               "MISSION_COMPLETED",
-              "LEVEL_UP"
+              "LEVEL_UP",
+              "BUDGET_WARNING",
+              "BUDGET_EXCEEDED"
             ]
           },
           "title": {
@@ -2624,6 +2952,144 @@
         "required": [
           "step"
         ]
+      },
+      "CreateBudgetDto": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Omit for an overall budget covering everything.",
+            "example": "Food"
+          },
+          "amount": {
+            "type": "number",
+            "example": 8000
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "MONTHLY",
+              "WEEKLY"
+            ],
+            "default": "MONTHLY"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "PERSONAL",
+              "ALL"
+            ],
+            "default": "PERSONAL"
+          },
+          "startsOn": {
+            "type": "string",
+            "description": "First period this applies to. Defaults to today."
+          }
+        },
+        "required": [
+          "amount"
+        ]
+      },
+      "UpdateBudgetDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "example": 9000
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "PERSONAL",
+              "ALL"
+            ]
+          }
+        }
+      },
+      "CreateRecurringDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Rent"
+          },
+          "amount": {
+            "type": "number",
+            "example": 18000
+          },
+          "cadence": {
+            "type": "string",
+            "enum": [
+              "DAILY",
+              "WEEKLY",
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "example": "MONTHLY"
+          },
+          "category": {
+            "type": "string",
+            "example": "Rent"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "PERSONAL",
+              "GROUP"
+            ],
+            "default": "PERSONAL",
+            "description": "GROUP requires groupId and splits equally across members at run time."
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "dayOfMonth": {
+            "type": "number",
+            "description": "MONTHLY only, 1-31. Clamped to the last day in shorter months.",
+            "minimum": 1,
+            "maximum": 31
+          },
+          "weekday": {
+            "type": "number",
+            "description": "WEEKLY only. 0 is Sunday.",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "startsOn": {
+            "type": "string",
+            "description": "First run. Defaults to the next occurrence from today."
+          },
+          "endsOn": {
+            "type": "string",
+            "description": "Stop after this date"
+          }
+        },
+        "required": [
+          "title",
+          "amount",
+          "cadence"
+        ]
+      },
+      "UpdateRecurringDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "category": {
+            "type": "string"
+          },
+          "paused": {
+            "type": "boolean",
+            "description": "true pauses it, false resumes"
+          },
+          "endsOn": {
+            "type": "string"
+          }
+        }
       },
       "SmartInputDto": {
         "type": "object",

@@ -4,6 +4,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ActivityKind } from './gamification.events';
 
 /**
+ * A recurring expense posts itself. Counting it would let rent complete "add 5
+ * expenses" while the user did nothing, so missions only ever count what a
+ * person actually entered.
+ */
+const NOT_SYSTEM = { createdVia: { not: CreatedVia.SYSTEM } } as const;
+
+/**
  * Progress is measured against the underlying tables rather than incremented on
  * each event. That makes it idempotent for free: a retried request, a duplicate
  * event or two devices acting at once all converge on the same count, and a
@@ -39,12 +46,12 @@ export class MissionProgressService {
     switch (type) {
       case MissionType.EXPENSE_COUNT:
         return this.prisma.expense.count({
-          where: { createdById: userId, createdAt: { gte: since } },
+          where: { createdById: userId, createdAt: { gte: since }, ...NOT_SYSTEM },
         });
 
       case MissionType.EXPENSE_CATEGORY_COUNT: {
         const rows = await this.prisma.expense.findMany({
-          where: { createdById: userId, createdAt: { gte: since } },
+          where: { createdById: userId, createdAt: { gte: since }, ...NOT_SYSTEM },
           select: { category: true },
           distinct: ['category'],
         });
@@ -54,7 +61,7 @@ export class MissionProgressService {
 
       case MissionType.EXPENSE_DAY_COUNT: {
         const rows = await this.prisma.expense.findMany({
-          where: { createdById: userId, createdAt: { gte: since } },
+          where: { createdById: userId, createdAt: { gte: since }, ...NOT_SYSTEM },
           select: { createdAt: true },
         });
 
