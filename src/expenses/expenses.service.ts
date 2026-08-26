@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { GroupRole, Prisma, SplitType } from '@prisma/client';
+import { CreatedVia, ExpenseScope, GroupRole, Prisma, SplitType } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { ACTIVITY_EVENT, ActivityEvent } from '../gamification/gamification.events';
@@ -7,6 +7,9 @@ import { GroupAccessService } from '../groups/group-access.service';
 import { CreateExpenseDto, ExpenseShareInputDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { QueryExpensesDto } from './dto/query-expenses.dto';
+import { CreatePersonalExpenseDto } from './dto/create-personal-expense.dto';
+import { UpdatePersonalExpenseDto } from './dto/update-personal-expense.dto';
+import { QueryPersonalExpensesDto } from './dto/query-personal-expenses.dto';
 import { formatMoney, splitEvenly, toDecimal, toNumber } from '../common/money';
 import { NotificationEmitter } from '../notifications/notification-emitter.service';
 import {
@@ -32,22 +35,118 @@ export class ExpensesService {
     private readonly events: EventEmitter2,
   ) {}
 
-  /** Decimal would serialise as a string, so amounts are converted here. */
+  /**
+   * One envelope for both kinds, so the expense row component needs no
+   * branching. A personal expense reports `myShare` equal to the total - your
+   * share of your own expense is all of it - and an empty shares array.
+   */
   private present(expense: ExpenseWithRelations, viewerId: string) {
+    const isPersonal = expense.scope === ExpenseScope.PERSONAL;
     const myShare = expense.shares.find((s) => s.userId === viewerId);
 
     return {
       ...expense,
       totalAmount: toNumber(expense.totalAmount),
+      // Exposed as `notes`; `description` stays for existing clients.
+      notes: expense.description,
       shares: expense.shares.map((share) => ({
         id: share.id,
         userId: share.userId,
         name: share.user.name,
         amount: toNumber(share.amount),
       })),
-      myShare: toNumber(myShare?.amount),
-      iPaid: expense.paidById === viewerId,
+      myShare: isPersonal ? toNumber(expense.totalAmount) : toNumber(myShare?.amount),
+      iPaid: isPersonal ? true : expense.paidById === viewerId,
     };
+  }
+
+  // ------------------------------------------------------------------
+  // Personal ledger
+  // ------------------------------------------------------------------
+
+  /** No group, no payer, no split - the check constraint enforces all three. */
+  async createPersonal(userId: string, dto: CreatePersonalExpenseDto, rawBody?: object) {
+    this.assertNoGroupFields(rawBody ?? dto);
+
+    const expense = await this.prisma.expense.create({
+      data: {
+        scope: ExpenseScope.PERSONAL,
+        ownerId: userId,
+        groupId: null,
+        paidById: null,
+        splitType: null,
+        title: dto.title,
+        description: dto.notes,
+        totalAmount: toDecimal(dto.totalAmount),
+        category: dto.category ?? 'General',
+        date: dto.date ? new Date(dto.date) : new Date(),
+        createdById: userId,
+        createdVia: dto.createdVia ?? CreatedVia.MANUAL,
+      },
+      include: EXPENSE_INCLUDE,
+    });
+
+    this.events.emit(ACTIVITY_EVENT, new ActivityEvent('EXPENSE_CREATED', userId));
+
+    return this.present(expense, userId);
+  }
+
+  /**
+   * Only the caller's own ledger. Ordered by `date` then `id`: a backdated
+   * expense belongs where it happened, and the tiebreak keeps paging stable.
+   */
+  async findAllPersonal(userId: string, query: QueryPersonalExpensesDto = {}) {
+    const where: Prisma.ExpenseWhereInput = {
+      scope: ExpenseScope.PERSONAL,
+      ownerId: userId,
+    };
+
+    if (query.category) where.category = query.category;
+
+    if (query.from || query.to) {
+      where.date = {
+        ...(query.from ? { gte: new Date(query.from) } : {}),
+        ...(query.to ? { lte: new Date(query.to) } : {}),
+      };
+    }
+
+    const [expenses, total] = await Promise.all([
+      this.prisma.expense.findMany({
+        where,
+        orderBy: [{ date: 'desc' }, { id: 'desc' }],
+        take: query.limit ?? 50,
+        skip: query.offset ?? 0,
+        include: EXPENSE_INCLUDE,
+      }),
+      this.prisma.expense.count({ where }),
+    ]);
+
+    return {
+      total,
+      limit: query.limit ?? 50,
+      offset: query.offset ?? 0,
+      items: expenses.map((expense) => this.present(expense, userId)),
+    };
+  }
+
+  private async updatePersonal(
+    userId: string,
+    expense: { id: string },
+    dto: UpdatePersonalExpenseDto,
+  ) {
+    const updated = await this.prisma.expense.update({
+      where: { id: expense.id },
+      data: {
+        ...(dto.title !== undefined ? { title: dto.title } : {}),
+        ...(dto.notes !== undefined ? { description: dto.notes } : {}),
+        ...(dto.totalAmount !== undefined ? { totalAmount: toDecimal(dto.totalAmount) } : {}),
+        ...(dto.category !== undefined ? { category: dto.category } : {}),
+        ...(dto.date !== undefined ? { date: new Date(dto.date) } : {}),
+      },
+      include: EXPENSE_INCLUDE,
+    });
+
+    return this.present(updated, userId);
   }
 
   async create(userId: string, groupId: string, dto: CreateExpenseDto) {
@@ -65,6 +164,10 @@ export class ExpensesService {
 
     const expense = await this.prisma.expense.create({
       data: {
+        scope: ExpenseScope.GROUP,
+        // For a group expense the owner is whoever paid, so one index covers
+        // both ledgers.
+        ownerId: paidById,
         groupId,
         title: dto.title,
         description: dto.description,
@@ -148,6 +251,7 @@ export class ExpensesService {
     };
   }
 
+  /** Personal expenses are authorised by owner, group ones by membership. */
   async findOne(userId: string, expenseId: string) {
     const expense = await this.prisma.expense.findUnique({
       where: { id: expenseId },
@@ -156,6 +260,15 @@ export class ExpensesService {
 
     if (!expense) {
       throw new NotFoundException(`Expense ${expenseId} not found`);
+    }
+
+    if (expense.scope === ExpenseScope.PERSONAL) {
+      if (expense.ownerId !== userId) {
+        // 404, not 403 - someone else's ledger should not be discoverable.
+        throw new NotFoundException(`Expense ${expenseId} not found`);
+      }
+
+      return this.present(expense, userId);
     }
 
     await this.access.requireMembership(userId, expense.groupId);
@@ -169,6 +282,18 @@ export class ExpensesService {
    * shares can never disagree with the total.
    */
   async update(userId: string, expenseId: string, dto: UpdateExpenseDto) {
+    const existing = await this.prisma.expense.findUnique({ where: { id: expenseId } });
+
+    if (existing?.scope === ExpenseScope.PERSONAL) {
+      if (existing.ownerId !== userId) {
+        throw new NotFoundException(`Expense ${expenseId} not found`);
+      }
+
+      this.assertNoGroupFields(dto);
+
+      return this.updatePersonal(userId, existing, dto as UpdatePersonalExpenseDto);
+    }
+
     const expense = await this.requireEditable(userId, expenseId);
     const memberIds = await this.memberIds(expense.groupId);
 
@@ -205,7 +330,7 @@ export class ExpensesService {
           ...(dto.title !== undefined ? { title: dto.title } : {}),
           ...(dto.description !== undefined ? { description: dto.description } : {}),
           ...(dto.totalAmount !== undefined ? { totalAmount: total } : {}),
-          ...(dto.paidById !== undefined ? { paidById } : {}),
+          ...(dto.paidById !== undefined ? { paidById, ownerId: paidById } : {}),
           ...(dto.splitType !== undefined ? { splitType } : {}),
           ...(dto.category !== undefined ? { category: dto.category } : {}),
           ...(dto.date !== undefined ? { date: new Date(dto.date) } : {}),
@@ -252,6 +377,18 @@ export class ExpensesService {
   }
 
   async remove(userId: string, expenseId: string) {
+    const existing = await this.prisma.expense.findUnique({ where: { id: expenseId } });
+
+    if (existing?.scope === ExpenseScope.PERSONAL) {
+      if (existing.ownerId !== userId) {
+        throw new NotFoundException(`Expense ${expenseId} not found`);
+      }
+
+      await this.prisma.expense.delete({ where: { id: expenseId } });
+
+      return { deleted: true, expenseId };
+    }
+
     const expense = await this.requireEditable(userId, expenseId);
 
     // Read the shares before the cascade takes them, so we know who to tell.
@@ -288,6 +425,25 @@ export class ExpensesService {
     );
 
     return { deleted: true, expenseId };
+  }
+
+  /**
+   * The check constraint should never be reachable from the API - a request
+   * carrying group fields on a personal expense is rejected here first, with a
+   * message that says where those belong.
+   */
+  assertNoGroupFields(body: object): void {
+    const candidate = (body ?? {}) as Record<string, unknown>;
+    const offenders = ['groupId', 'paidById', 'splitType', 'shares'].filter(
+      (field) => candidate[field] !== undefined,
+    );
+
+    if (offenders.length > 0) {
+      throw new BadRequestException(
+        `${offenders.join(', ')} ${offenders.length === 1 ? 'belongs' : 'belong'} to a group expense. ` +
+          'Use POST /api/groups/:groupId/expenses instead.',
+      );
+    }
   }
 
   private async nameOf(userId: string): Promise<string> {

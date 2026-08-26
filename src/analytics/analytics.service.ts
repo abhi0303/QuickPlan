@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ExpenseScope, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { GroupAccessService } from '../groups/group-access.service';
 import { GroupsService } from '../groups/groups.service';
-import { AnalyticsQueryDto, TimeBucket } from './dto/analytics-query.dto';
+import { AnalyticsQueryDto, AnalyticsScope, TimeBucket } from './dto/analytics-query.dto';
 import { toNumber, ZERO } from '../common/money';
 
 @Injectable()
@@ -84,32 +84,52 @@ export class AnalyticsService {
    * dashboard: what they are owed, what they owe, and where their money goes.
    */
   async myAnalytics(userId: string, query: AnalyticsQueryDto) {
-    const groupIds = await this.access.memberGroupIds(userId);
+    const scope = query.scope ?? AnalyticsScope.ALL;
+    const includeGroup = scope !== AnalyticsScope.PERSONAL;
+    const includePersonal = scope !== AnalyticsScope.GROUP;
 
-    if (groupIds.length === 0) {
-      return this.emptySummary();
+    const groupIds = includeGroup ? await this.access.memberGroupIds(userId) : [];
+
+    // Personal expenses stand on their own, so a user with no groups still has
+    // analytics - which is most people on day one.
+    const personalExpenses = includePersonal
+      ? await this.prisma.expense.findMany({
+          where: this.dateWindow(
+            { scope: ExpenseScope.PERSONAL, ownerId: userId },
+            query,
+          ) as Prisma.ExpenseWhereInput,
+          select: { date: true, category: true, totalAmount: true },
+        })
+      : [];
+
+    if (groupIds.length === 0 && personalExpenses.length === 0) {
+      return this.emptySummary(scope);
     }
 
     const where = this.dateWindow({ groupId: { in: groupIds } }, query);
 
-    const [myShares, myExpenses, groups] = await Promise.all([
-      this.prisma.expenseShare.findMany({
-        where: { userId, expense: where },
-        include: { expense: { select: { date: true, category: true, groupId: true } } },
-      }),
-      this.prisma.expense.findMany({
-        where: { ...where, paidById: userId },
-        select: { totalAmount: true },
-      }),
-      this.prisma.group.findMany({
-        where: { id: { in: groupIds } },
-        select: { id: true, name: true, currency: true },
-      }),
-    ]);
+    const [myShares, myExpenses, groups] = groupIds.length
+      ? await Promise.all([
+          this.prisma.expenseShare.findMany({
+            where: { userId, expense: where },
+            include: { expense: { select: { date: true, category: true, groupId: true } } },
+          }),
+          this.prisma.expense.findMany({
+            where: { ...where, paidById: userId },
+            select: { totalAmount: true },
+          }),
+          this.prisma.group.findMany({
+            where: { id: { in: groupIds } },
+            select: { id: true, name: true, currency: true },
+          }),
+        ])
+      : [[], [], []];
 
     // My spend is my share of things, not what I fronted - that is the number
     // that answers "where does my money go".
-    const myTotal = myShares.reduce((sum, s) => sum.add(s.amount), ZERO);
+    const groupShareTotal = myShares.reduce((sum, s) => sum.add(s.amount), ZERO);
+    const personalTotal = personalExpenses.reduce((sum, e) => sum.add(e.totalAmount), ZERO);
+    const myTotal = groupShareTotal.add(personalTotal);
     const paidOut = myExpenses.reduce((sum, e) => sum.add(e.totalAmount), ZERO);
 
     const categoryTotals = new Map<string, Prisma.Decimal>();
@@ -117,6 +137,11 @@ export class AnalyticsService {
     for (const share of myShares) {
       const key = share.expense.category;
       categoryTotals.set(key, (categoryTotals.get(key) ?? ZERO).add(share.amount));
+    }
+
+    for (const expense of personalExpenses) {
+      const key = expense.category;
+      categoryTotals.set(key, (categoryTotals.get(key) ?? ZERO).add(expense.totalAmount));
     }
 
     const perGroup = await Promise.all(
@@ -142,7 +167,18 @@ export class AnalyticsService {
     const iOwe = perGroup.filter((g) => g.net < 0).reduce((sum, g) => sum - g.net, 0);
 
     return {
+      scope,
       totals: {
+        /**
+         * What actually left this person's money, for the requested scope:
+         * PERSONAL is their own expenses, GROUP is their share of group ones,
+         * ALL is both. "My spending" is the most misread number in the app, so
+         * it is named rather than implied.
+         */
+        spent: toNumber(myTotal),
+        personalSpent: toNumber(personalTotal),
+        groupShareSpent: toNumber(groupShareTotal),
+        /** @deprecated Same value as `spent`; kept for existing clients. */
         myTotalShare: toNumber(myTotal),
         totalIPaidOut: toNumber(paidOut),
         owedToMe: Number(owedToMe.toFixed(2)),
@@ -158,15 +194,28 @@ export class AnalyticsService {
         .sort((a, b) => b.total - a.total),
       byGroup: perGroup.sort((a, b) => Math.abs(b.net) - Math.abs(a.net)),
       overTime: this.bucketise(
-        myShares.map((s) => ({ date: s.expense.date, totalAmount: s.amount })),
+        [
+          ...myShares.map((s) => ({ date: s.expense.date, totalAmount: s.amount })),
+          ...personalExpenses.map((e) => ({ date: e.date, totalAmount: e.totalAmount })),
+        ],
         query.bucket ?? TimeBucket.MONTH,
       ),
     };
   }
 
-  private emptySummary() {
+  private emptySummary(scope: AnalyticsScope = AnalyticsScope.ALL) {
     return {
-      totals: { myTotalShare: 0, totalIPaidOut: 0, owedToMe: 0, iOwe: 0, netBalance: 0 },
+      scope,
+      totals: {
+        spent: 0,
+        personalSpent: 0,
+        groupShareSpent: 0,
+        myTotalShare: 0,
+        totalIPaidOut: 0,
+        owedToMe: 0,
+        iOwe: 0,
+        netBalance: 0,
+      },
       byCategory: [],
       byGroup: [],
       overTime: [],

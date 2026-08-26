@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { CreatedVia } from '@prisma/client';
+import { ExpensesService } from '../expenses/expenses.service';
 import { AiService, ExtractedIntent } from './ai.service';
 import { TasksService } from '../tasks/tasks.service';
 import { RemindersService } from '../reminders/reminders.service';
@@ -10,6 +11,7 @@ export class SmartInputService {
     private aiService: AiService,
     private tasksService: TasksService,
     private remindersService: RemindersService,
+    private expensesService: ExpensesService,
   ) {}
 
   async handleSmartInput(userId: string, text: string) {
@@ -23,15 +25,42 @@ export class SmartInputService {
     let message = '';
 
     switch (parseResult.intent) {
-      // Money now lives in shared groups, and a sentence carries no group
-      // context - "I owe Rahul 500" cannot say which group it belongs to, or
-      // who else should see it. Rather than guess and post to the wrong
-      // ledger, these intents hand the user back to the group screens.
+      /**
+       * "Spent 400 on petrol" is a complete personal expense, so voice can
+       * record it. "Gave Rahul 500" is not: a sentence cannot name the group or
+       * the people, so anything mentioning someone still goes to the group
+       * screens rather than being guessed at.
+       */
+      case ExtractedIntent.PERSONAL_EXPENSE: {
+        const { title, totalAmount, category } = parseResult.payload;
+
+        createdEntity = await this.expensesService.createPersonal(userId, {
+          title: title || 'Expense',
+          totalAmount,
+          category,
+          createdVia: CreatedVia.VOICE,
+        });
+
+        message = parseResult.needsClarification
+          ? `Recorded ₹${totalAmount}. ${parseResult.clarificationQuestion}`
+          : `Recorded ₹${totalAmount} for ${createdEntity.title}.`;
+        break;
+      }
+
+      /**
+       * Anything involving other people stays in a group. A sentence cannot
+       * name the group or list who was there, and guessing would post money to
+       * the wrong ledger where the wrong people would see it.
+       */
       case ExtractedIntent.CREATE_IOU:
       case ExtractedIntent.SPLIT_EXPENSE:
       case ExtractedIntent.SETTLE_EXPENSE: {
-        message =
-          'Expenses belong to a group now. Open the group and add it there, so every member sees it.';
+        const { personName } = parseResult.payload ?? {};
+        const named = personName && personName !== 'Unknown' ? personName : null;
+
+        message = named
+          ? `Money involving ${named} belongs to a group, so both sides see it. Open Money to record it.`
+          : 'Money shared with other people belongs to a group. Open Money to record it.';
         break;
       }
 

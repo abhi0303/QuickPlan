@@ -564,6 +564,90 @@
         ]
       }
     },
+    "/api/expenses": {
+      "post": {
+        "operationId": "ExpensesController_createPersonal",
+        "summary": "Record a personal expense — no group, no payer, no split",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePersonalExpenseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "get": {
+        "operationId": "ExpensesController_findAllPersonal",
+        "summary": "Your personal expenses, newest first by date",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "On or after this date (ISO 8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "On or before this date (ISO 8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 200,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
     "/api/expenses/{id}": {
       "get": {
         "operationId": "ExpensesController_findOne",
@@ -774,6 +858,31 @@
         ],
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/api/groups/{id}/convert-to-personal": {
+      "post": {
+        "operationId": "GroupsController_convertToPersonal",
+        "summary": "Turn a one-member group into personal expenses and delete it",
+        "description": "Owner only. Rejected if the group has more than one member or any recorded payment. Reversible only by re-entering the data.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
             "description": ""
           }
         },
@@ -1280,6 +1389,21 @@
         "summary": "Personal dashboard across all groups: totals, category pie, per-group bars, trend line",
         "parameters": [
           {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "description": "PERSONAL: your own expenses. GROUP: your share of group expenses. ALL: both, which is what actually left your money.",
+            "schema": {
+              "default": "ALL",
+              "enum": [
+                "PERSONAL",
+                "GROUP",
+                "ALL"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "name": "from",
             "required": false,
             "in": "query",
@@ -1332,6 +1456,21 @@
             "required": true,
             "in": "path",
             "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "description": "PERSONAL: your own expenses. GROUP: your share of group expenses. ALL: both, which is what actually left your money.",
+            "schema": {
+              "default": "ALL",
+              "enum": [
+                "PERSONAL",
+                "GROUP",
+                "ALL"
+              ],
               "type": "string"
             }
           },
@@ -2057,6 +2196,47 @@
           "date": {
             "type": "string",
             "description": "When it happened, ISO 8601. Defaults to now."
+          }
+        },
+        "required": [
+          "title",
+          "totalAmount"
+        ]
+      },
+      "CreatePersonalExpenseDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Petrol"
+          },
+          "totalAmount": {
+            "type": "number",
+            "example": 400
+          },
+          "category": {
+            "type": "string",
+            "description": "Free text, drives the breakdown charts",
+            "example": "Fuel"
+          },
+          "date": {
+            "type": "string",
+            "description": "When it happened, ISO 8601. Defaults to now."
+          },
+          "notes": {
+            "type": "string",
+            "example": "Indian Oil, Sector 18"
+          },
+          "createdVia": {
+            "type": "string",
+            "enum": [
+              "MANUAL",
+              "VOICE",
+              "IMPORT",
+              "SYSTEM"
+            ],
+            "default": "MANUAL",
+            "description": "VOICE lets voice expense missions count this one."
           }
         },
         "required": [

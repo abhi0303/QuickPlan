@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { GroupRole, Prisma } from '@prisma/client';
+import { ExpenseScope, GroupRole, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { FriendsService } from '../friends/friends.service';
 import { GroupAccessService } from './group-access.service';
@@ -395,6 +395,56 @@ export class GroupsService {
       })),
       myNetBalance: byId.get(userId)?.net ?? 0,
     };
+  }
+
+  /**
+   * Turns a one-member group into personal expenses. Offered rather than
+   * applied automatically: a small group may be legitimate, and this is
+   * reversible only by re-entering the data.
+   */
+  async convertToPersonal(userId: string, groupId: string) {
+    await this.access.requireOwner(userId, groupId);
+
+    const [members, settlements] = await Promise.all([
+      this.prisma.groupMember.findMany({ where: { groupId }, select: { userId: true } }),
+      this.prisma.settlement.count({ where: { groupId } }),
+    ]);
+
+    if (members.length !== 1) {
+      throw new BadRequestException(
+        'Only a group with a single member can become personal expenses.',
+      );
+    }
+
+    if (settlements > 0) {
+      throw new BadRequestException(
+        'This group has recorded payments, so its expenses are not purely personal.',
+      );
+    }
+
+    const expenses = await this.prisma.expense.findMany({
+      where: { groupId },
+      select: { id: true },
+    });
+
+    // One transaction: the expenses must never be left pointing at a group that
+    // has already been deleted.
+    await this.prisma.$transaction([
+      this.prisma.expenseShare.deleteMany({ where: { expense: { groupId } } }),
+      this.prisma.expense.updateMany({
+        where: { groupId },
+        data: {
+          scope: ExpenseScope.PERSONAL,
+          ownerId: userId,
+          groupId: null,
+          paidById: null,
+          splitType: null,
+        },
+      }),
+      this.prisma.group.delete({ where: { id: groupId } }),
+    ]);
+
+    return { converted: expenses.length, groupId, deleted: true };
   }
 
   private async assertAllAreFriends(userId: string, memberIds: string[]) {
