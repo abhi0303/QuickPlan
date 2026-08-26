@@ -1959,6 +1959,107 @@
         ]
       }
     },
+    "/api/planner": {
+      "get": {
+        "operationId": "PlannerController_get",
+        "summary": "The whole computed plan — income, commitments, estimates and what is left",
+        "description": "Arrives ready to render; the client does no arithmetic.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Budget planner"
+        ]
+      },
+      "put": {
+        "operationId": "PlannerController_upsert",
+        "summary": "Set income. A change archives the current plan and replaces it.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertPlanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Budget planner"
+        ]
+      },
+      "delete": {
+        "operationId": "PlannerController_archive",
+        "summary": "Archive the plan",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Budget planner"
+        ]
+      }
+    },
+    "/api/planner/items/{id}": {
+      "patch": {
+        "operationId": "PlannerController_updateItem",
+        "summary": "Switch a line off, or replace its estimate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlanItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Budget planner"
+        ]
+      }
+    },
+    "/api/planner/recalculate": {
+      "post": {
+        "operationId": "PlannerController_recalculate",
+        "summary": "Refresh the estimates from history now",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Budget planner"
+        ]
+      }
+    },
     "/api/v1/smart-input": {
       "post": {
         "operationId": "SmartInputController_processInput",
@@ -3088,6 +3189,39 @@
           },
           "endsOn": {
             "type": "string"
+          }
+        }
+      },
+      "UpsertPlanDto": {
+        "type": "object",
+        "properties": {
+          "monthlyIncome": {
+            "type": "number",
+            "description": "Take-home pay per month",
+            "example": 85000
+          },
+          "savingsTarget": {
+            "type": "number",
+            "description": "Optional \"I want to save this much\"",
+            "example": 20000
+          }
+        },
+        "required": [
+          "monthlyIncome"
+        ]
+      },
+      "UpdatePlanItemDto": {
+        "type": "object",
+        "properties": {
+          "included": {
+            "type": "boolean",
+            "description": "Switch a line out of the plan"
+          },
+          "amountOverride": {
+            "type": "number",
+            "description": "Replace the estimate with a typed figure. Null resumes tracking history.",
+            "example": 7500,
+            "nullable": true
           }
         }
       },
