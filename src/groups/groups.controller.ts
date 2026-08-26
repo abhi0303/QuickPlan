@@ -48,6 +48,16 @@ export class GroupsController {
     return this.groupsService.remove(userId, id);
   }
 
+  @Post(':id/convert-to-personal')
+  @ApiOperation({
+    summary: 'Turn a one-member group into personal expenses and delete it',
+    description:
+      'Owner only. Rejected if the group has more than one member or any recorded payment. Reversible only by re-entering the data.',
+  })
+  convertToPersonal(@CurrentUser() userId: string, @Param('id') id: string) {
+    return this.groupsService.convertToPersonal(userId, id);
+  }
+
   @Post(':id/members')
   @ApiOperation({ summary: 'Add friends to the group (owner only)' })
   addMembers(@CurrentUser() userId: string, @Param('id') id: string, @Body() dto: AddMembersDto) {

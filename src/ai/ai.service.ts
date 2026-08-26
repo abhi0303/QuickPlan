@@ -9,6 +9,7 @@ export enum ExtractedIntent {
   COMPLETE_TASK = 'COMPLETE_TASK',
   QUERY_TASK = 'QUERY_TASK',
   QUERY_EXPENSE = 'QUERY_EXPENSE',
+  PERSONAL_EXPENSE = 'PERSONAL_EXPENSE',
 }
 
 export interface SmartParseResult {
@@ -51,8 +52,82 @@ export class AiService {
       return this.parseSettlement(input);
     }
 
-    // 5. Default: Task & Reminder Creation
+    // 5. Money handed to a named person is an IOU, not a personal expense -
+    // "gave Rahul 500" needs a group so both sides see it.
+    if (this.mentionsGivingSomeone(lower) && this.extractAmount(input) > 0) {
+      return this.parseIOUPayable(input);
+    }
+
+    // 6. A personal expense: an amount, a spending verb, and nobody else
+    // involved. "Spent 400 on petrol" is complete on its own.
+    if (this.looksLikePersonalSpend(lower) && this.extractAmount(input) > 0) {
+      return this.parsePersonalExpense(input);
+    }
+
+    // 7. Default: Task & Reminder Creation
     return this.parseTaskAndReminder(input);
+  }
+
+  private extractAmount(input: string): number {
+    const match =
+      input.match(/(?:₹|rs\.?|inr)\s*(\d+(?:\.\d+)?)/i) ||
+      input.match(/(\d+(?:\.\d+)?)\s*(?:rupees|rupee|rs|inr)/i) ||
+      input.match(/\b(\d+(?:\.\d+)?)\b/);
+
+    return match ? parseFloat(match[1]) : 0;
+  }
+
+  private mentionsGivingSomeone(lower: string): boolean {
+    return /\b(gave|give|owe|owes|lent|paid back|diye|dena|dene)\b/.test(lower);
+  }
+
+  private looksLikePersonalSpend(lower: string): boolean {
+    return /\b(spent|spend|bought|buy|kharch|kharcha|kharche|paid for|cost|bill for)\b/.test(lower);
+  }
+
+  /** Best-effort category from the words people actually use. */
+  private guessCategory(lower: string): string {
+    const table: Array<[RegExp, string]> = [
+      [/petrol|diesel|fuel|gas station/, 'Fuel'],
+      [/grocer|vegetable|sabzi|supermarket|kirana/, 'Groceries'],
+      [/coffee|tea|chai|lunch|dinner|breakfast|food|restaurant|snack|pizza/, 'Food'],
+      [/uber|ola|cab|taxi|auto|bus|train|flight|metro/, 'Travel'],
+      [/rent/, 'Rent'],
+      [/medicine|doctor|pharmacy|hospital|clinic/, 'Health'],
+      [/movie|cinema|game|concert/, 'Entertainment'],
+      [/recharge|bill|electricity|water|internet|wifi|mobile/, 'Bills'],
+      [/shirt|clothes|shoes|shopping/, 'Shopping'],
+    ];
+
+    return table.find(([pattern]) => pattern.test(lower))?.[1] ?? 'General';
+  }
+
+  private parsePersonalExpense(input: string): SmartParseResult {
+    const lower = input.toLowerCase();
+    const amount = this.extractAmount(input);
+
+    // The thing bought usually follows "on", "for" or "ka".
+    const subject =
+      // "spent 400 on petrol" / "bill for medicine"
+      input.match(/\b(?:on|for)\s+([a-z\u0900-\u097F][\w\u0900-\u097F\s]{1,40})/i)?.[1] ??
+      // "bought coffee for 150" - the thing follows the verb, not a preposition
+      input.match(/\b(?:bought|buy)\s+([a-z\u0900-\u097F][\w\u0900-\u097F\s]{1,40}?)(?:\s+for\b|\s*$)/i)?.[1] ??
+      input.match(/([a-z\u0900-\u097F][\w\u0900-\u097F\s]{1,40})\s*(?:ka|ke|ki)\s*kharch/i)?.[1];
+
+    const title = subject?.trim().replace(/\s+/g, ' ');
+    const category = this.guessCategory(lower);
+
+    return {
+      intent: ExtractedIntent.PERSONAL_EXPENSE,
+      originalText: input,
+      needsClarification: !title,
+      clarificationQuestion: title ? undefined : 'What was it for?',
+      payload: {
+        title: title ? title.charAt(0).toUpperCase() + title.slice(1) : 'Expense',
+        totalAmount: amount,
+        category,
+      },
+    };
   }
 
   private parseIOUPayable(input: string): SmartParseResult {

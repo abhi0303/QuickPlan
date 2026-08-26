@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { GroupRole, Prisma, SplitType } from '@prisma/client';
+import { ExpenseScope, GroupRole, Prisma, SplitType } from '@prisma/client';
 import { ExpensesService } from './expenses.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GroupAccessService } from '../groups/group-access.service';
@@ -28,7 +28,7 @@ describe('ExpensesService', () => {
   );
 
   const prisma = {
-    expense: { create: created, findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), update: jest.fn(), delete: jest.fn() },
+    expense: { create: created, findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), update: jest.fn(), delete: jest.fn().mockResolvedValue({}) },
     expenseShare: { deleteMany: jest.fn(), createMany: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
     groupMember: { findMany: jest.fn().mockResolvedValue(MEMBERS.map((userId) => ({ userId }))) },
     group: { update: jest.fn(), findUnique: jest.fn().mockResolvedValue({ name: 'G', currency: 'INR' }) },
@@ -197,6 +197,84 @@ describe('ExpensesService', () => {
       });
 
       await expect(service.update('u1', 'e1', { title: 'Renamed' })).resolves.toBeDefined();
+    });
+  });
+
+  describe('personal expenses', () => {
+    it('records no group, no payer and no split', async () => {
+      await service.createPersonal('u1', { title: 'Petrol', totalAmount: 400 });
+
+      const data = created.mock.calls[0][0].data;
+      expect(data.scope).toBe(ExpenseScope.PERSONAL);
+      expect(data.ownerId).toBe('u1');
+      expect(data.groupId).toBeNull();
+      expect(data.paidById).toBeNull();
+      expect(data.splitType).toBeNull();
+    });
+
+    it('reports myShare as the whole amount, since it is all yours', async () => {
+      const result = await service.createPersonal('u1', { title: 'Coffee', totalAmount: 150 });
+
+      expect(result.myShare).toBe(150);
+      expect(result.shares).toEqual([]);
+      expect(result.iPaid).toBe(true);
+    });
+
+    it('maps notes onto the stored description', async () => {
+      await service.createPersonal('u1', { title: 'Petrol', totalAmount: 400, notes: 'Sector 18' });
+
+      expect(created.mock.calls[0][0].data.description).toBe('Sector 18');
+    });
+
+    /** The check constraint should never be reachable from the API. */
+    it.each(['groupId', 'paidById', 'splitType', 'shares'])(
+      'rejects the group-only field %s',
+      async (field) => {
+        await expect(
+          service.createPersonal('u1', { title: 'x', totalAmount: 1 } as never, {
+            title: 'x',
+            totalAmount: 1,
+            [field]: 'value',
+          }),
+        ).rejects.toThrow(/group expense/);
+      },
+    );
+
+    it('scopes the list to the caller and orders by date', async () => {
+      await service.findAllPersonal('u1', {});
+
+      const call = prisma.expense.findMany.mock.calls[0][0];
+      expect(call.where).toMatchObject({ scope: ExpenseScope.PERSONAL, ownerId: 'u1' });
+      expect(call.orderBy).toEqual([{ date: 'desc' }, { id: 'desc' }]);
+    });
+
+    it('hides another owner\'s personal expense behind a 404', async () => {
+      prisma.expense.findUnique.mockResolvedValue({
+        id: 'e1', scope: ExpenseScope.PERSONAL, ownerId: 'someone-else',
+      });
+
+      await expect(service.findOne('u1', 'e1')).rejects.toThrow(NotFoundException);
+      await expect(service.update('u1', 'e1', { title: 'x' })).rejects.toThrow(NotFoundException);
+      await expect(service.remove('u1', 'e1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('lets the owner delete their own', async () => {
+      prisma.expense.findUnique.mockResolvedValue({
+        id: 'e1', scope: ExpenseScope.PERSONAL, ownerId: 'u1',
+      });
+
+      await expect(service.remove('u1', 'e1')).resolves.toEqual({ deleted: true, expenseId: 'e1' });
+    });
+  });
+
+  describe('group expenses keep their shape', () => {
+    it('sets scope GROUP and owns the expense to the payer', async () => {
+      await service.create('u1', 'g1', { title: 'Dinner', totalAmount: 1200, paidById: 'u2' });
+
+      const data = created.mock.calls[0][0].data;
+      expect(data.scope).toBe(ExpenseScope.GROUP);
+      expect(data.ownerId).toBe('u2');
+      expect(data.groupId).toBe('g1');
     });
   });
 });

@@ -7,7 +7,23 @@ export enum TimeBucket {
   MONTH = 'MONTH',
 }
 
+export enum AnalyticsScope {
+  PERSONAL = 'PERSONAL',
+  GROUP = 'GROUP',
+  ALL = 'ALL',
+}
+
 export class AnalyticsQueryDto {
+  @ApiPropertyOptional({
+    enum: AnalyticsScope,
+    default: AnalyticsScope.ALL,
+    description:
+      'PERSONAL: your own expenses. GROUP: your share of group expenses. ALL: both, which is what actually left your money.',
+  })
+  @IsOptional()
+  @IsEnum(AnalyticsScope)
+  scope?: AnalyticsScope;
+
   @ApiPropertyOptional({ description: 'Start of the window, ISO 8601' })
   @IsOptional()
   @IsISO8601()

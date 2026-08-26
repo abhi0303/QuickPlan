@@ -59,6 +59,13 @@ enum NotificationType {
   LEVEL_UP
 }
 
+/// A coffee is not a trip. PERSONAL expenses belong to one person's ledger and
+/// have no group, no payer and no shares; GROUP expenses have all three.
+enum ExpenseScope {
+  PERSONAL
+  GROUP
+}
+
 enum SplitType {
   EQUAL
   EXACT
@@ -93,6 +100,7 @@ model User {
   memberships         GroupMember[]
   groupsCreated       Group[]        @relation("GroupCreator")
   expensesPaid        Expense[]      @relation("ExpensePaidBy")
+  expensesOwned       Expense[]      @relation("ExpenseOwner")
   expensesCreated     Expense[]      @relation("ExpenseCreatedBy")
   shares              ExpenseShare[]
   settlementsPaid     Settlement[]   @relation("SettlementFrom")
@@ -219,34 +227,48 @@ model GroupMember {
 }
 
 model Expense {
-  id          String     @id @default(uuid())
-  groupId     String
+  id          String       @id @default(uuid())
+  scope       ExpenseScope @default(GROUP)
+  /// Whose money this affects: the ledger owner for a personal expense, the
+  /// payer for a group one, so one index answers "everything touching this
+  /// person's money".
+  ownerId     String
+  groupId     String?
   title       String
+  /// Exposed to clients as `notes`. One column rather than a near-identical
+  /// second field.
   description String?
-  totalAmount Decimal    @db.Decimal(12, 2)
-  currency    String     @default("INR")
-  /// Who actually paid. Must be a member of the group.
-  paidById    String
+  totalAmount Decimal      @db.Decimal(12, 2)
+  currency    String       @default("INR")
+  /// GROUP only. Null on a personal expense - there is nobody else to have paid.
+  paidById    String?
   createdById String
-  splitType   SplitType  @default(EQUAL)
+  /// GROUP only. A personal expense is not split.
+  splitType   SplitType?
   /// Expenses have no voice flow today; this exists so the mission engine reads
   /// the same field everywhere.
-  createdVia  CreatedVia @default(MANUAL)
+  createdVia  CreatedVia   @default(MANUAL)
   /// Category drives the breakdown charts, and date drives the time series -
   /// both are indexed because the analytics endpoints group on them.
-  category    String     @default("General")
-  date        DateTime   @default(now())
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  category    String       @default("General")
+  date        DateTime     @default(now())
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
-  group     Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  paidBy    User           @relation("ExpensePaidBy", fields: [paidById], references: [id])
+  group     Group?         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  /// Restrict, not Cascade: ownerId is the payer on a group expense, so
+  /// cascading would delete expenses other members' balances depend on.
+  owner     User           @relation("ExpenseOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  /// Restrict rather than the default SetNull for an optional relation, which
+  /// would null a payer the GROUP branch of the check constraint requires.
+  paidBy    User?          @relation("ExpensePaidBy", fields: [paidById], references: [id], onDelete: Restrict)
   createdBy User           @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
   shares    ExpenseShare[]
 
   @@index([groupId, date])
   @@index([groupId, category])
   @@index([paidById])
+  @@index([ownerId, scope, date])
 }
 
 /// What each member owes for one expense. Shares always sum to totalAmount.
