@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { toNumber } from '../common/money';
+import { GroupsService } from '../groups/groups.service';
+import { GroupAccessService } from '../groups/group-access.service';
+import { suggestSettlements, toNumber } from '../common/money';
 import { QueryCashflowDto } from './dto/cashflow.dto';
 
 interface MovementRow {
@@ -32,7 +34,91 @@ interface MovementRow {
  */
 @Injectable()
 export class CashflowService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly groups: GroupsService,
+    private readonly access: GroupAccessService,
+  ) {}
+
+  /**
+   * How much of the user's money is currently out with other people, and with
+   * whom - the one number a group app never tells you.
+   *
+   * Derived from the same balances the group view already computes, netted per
+   * counterparty across every group. Nothing is stored: a debt is the balance
+   * between two people, and storing it would mean keeping a second copy of a
+   * number that expenses and settlements already determine.
+   */
+  async outstanding(userId: string) {
+    const groupIds = await this.access.memberGroupIds(userId);
+
+    if (groupIds.length === 0) {
+      return { owedToYou: 0, youOwe: 0, net: 0, byGroup: [], byPerson: [] };
+    }
+
+    const byPerson = new Map<string, { userId: string; name: string | null; amount: number }>();
+    const byGroup: Array<{ groupId: string; groupName: string | null; net: number }> = [];
+
+    const groups = await this.prisma.group.findMany({
+      where: { id: { in: groupIds } },
+      select: { id: true, name: true },
+    });
+    const nameOf = new Map(groups.map((g) => [g.id, g.name]));
+
+    for (const groupId of groupIds) {
+      const balances = await this.groups.balancesFor(groupId);
+      const mine = balances.find((b) => b.userId === userId);
+
+      byGroup.push({
+        groupId,
+        groupName: nameOf.get(groupId) ?? null,
+        net: mine?.net ?? 0,
+      });
+
+      // The same greedy matching the group view shows as "settle up", so the
+      // per-person figures here and the suggestions there cannot disagree.
+      const transfers = suggestSettlements(
+        balances.map((b) => ({ userId: b.userId, net: b.netDecimal as never })),
+      );
+
+      for (const transfer of transfers) {
+        const involvesMe = transfer.fromUserId === userId || transfer.toUserId === userId;
+
+        if (!involvesMe) {
+          continue;
+        }
+
+        const owedToMe = transfer.toUserId === userId;
+        const otherId = owedToMe ? transfer.fromUserId : transfer.toUserId;
+        const other = balances.find((b) => b.userId === otherId);
+        const signed = toNumber(transfer.amount) * (owedToMe ? 1 : -1);
+        const current = byPerson.get(otherId);
+
+        byPerson.set(otherId, {
+          userId: otherId,
+          name: other?.name ?? null,
+          amount: Number(((current?.amount ?? 0) + signed).toFixed(2)),
+        });
+      }
+    }
+
+    const people = [...byPerson.values()].filter((p) => p.amount !== 0);
+    const owedToYou = Number(
+      people.filter((p) => p.amount > 0).reduce((sum, p) => sum + p.amount, 0).toFixed(2),
+    );
+    const youOwe = Number(
+      people.filter((p) => p.amount < 0).reduce((sum, p) => sum - p.amount, 0).toFixed(2),
+    );
+
+    return {
+      owedToYou,
+      youOwe,
+      net: Number((owedToYou - youOwe).toFixed(2)),
+      byGroup: byGroup.filter((g) => g.net !== 0).sort((a, b) => b.net - a.net),
+      // Positive means they owe you; negative means you owe them.
+      byPerson: people.sort((a, b) => b.amount - a.amount),
+    };
+  }
 
   async list(userId: string, query: QueryCashflowDto = {}) {
     const limit = query.limit ?? 50;

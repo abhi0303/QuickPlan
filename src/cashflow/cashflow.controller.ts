@@ -18,4 +18,14 @@ export class CashflowController {
   list(@CurrentUser() userId: string, @Query() query: QueryCashflowDto) {
     return this.cashflow.list(userId, query);
   }
+
+  @Get('outstanding')
+  @ApiOperation({
+    summary: 'How much of your money is out with other people, and with whom',
+    description:
+      'Netted per counterparty across every group you belong to. Derived from the same balances the group view shows — nothing is stored.',
+  })
+  outstanding(@CurrentUser() userId: string) {
+    return this.cashflow.outstanding(userId);
+  }
 }

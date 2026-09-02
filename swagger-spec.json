@@ -2114,6 +2114,22 @@
         ]
       }
     },
+    "/api/cashflow/outstanding": {
+      "get": {
+        "operationId": "CashflowController_outstanding",
+        "summary": "How much of your money is out with other people, and with whom",
+        "description": "Netted per counterparty across every group you belong to. Derived from the same balances the group view shows — nothing is stored.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Cash flow"
+        ]
+      }
+    },
     "/api/v1/smart-input": {
       "post": {
         "operationId": "SmartInputController_processInput",
