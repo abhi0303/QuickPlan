@@ -2060,6 +2060,60 @@
         ]
       }
     },
+    "/api/cashflow": {
+      "get": {
+        "operationId": "CashflowController_list",
+        "summary": "Everything that actually moved your money, newest first",
+        "description": "What left your account, not what it cost you: the full amount of any bill you fronted, plus every settlement. Derived on request — nothing is stored.",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "On or after this moment (ISO 8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "On or before this moment (ISO 8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 200,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Cash flow"
+        ]
+      }
+    },
     "/api/v1/smart-input": {
       "post": {
         "operationId": "SmartInputController_processInput",
