@@ -7,6 +7,17 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { OnboardingService } from '../onboarding/onboarding.service';
 
+/** What the owner of an account is allowed to see about themselves. */
+const PROFILE = {
+  id: true,
+  name: true,
+  email: true,
+  upiId: true,
+  createdAt: true,
+  updatedAt: true,
+  settings: true,
+} as const;
+
 @Injectable()
 export class UserService {
   constructor(
@@ -48,14 +59,7 @@ export class UserService {
           },
         },
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        createdAt: true,
-        updatedAt: true,
-        settings: true,
-      },
+      select: PROFILE,
     });
   }
 
@@ -123,8 +127,12 @@ export class UserService {
       data: {
         name: dto.name,
         email: dto.email,
+        // undefined leaves it alone; null clears it.
+        upiId: dto.upiId,
       },
-      include: { settings: true },
+      // An explicit select, because `include` on its own returns every scalar
+      // on User - passwordHash and passwordChangedAt included.
+      select: PROFILE,
     });
   }
 

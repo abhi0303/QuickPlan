@@ -19,7 +19,7 @@ import {
 } from '../notifications/notification-events';
 
 const EXPENSE_INCLUDE = {
-  paidBy: { select: { id: true, name: true, email: true } },
+  paidBy: { select: { id: true, name: true, email: true, upiId: true } },
   createdBy: { select: { id: true, name: true, email: true } },
   shares: { include: { user: { select: { id: true, name: true, email: true } } } },
 } satisfies Prisma.ExpenseInclude;
