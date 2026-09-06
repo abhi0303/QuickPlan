@@ -5,9 +5,10 @@ import { GamificationListener } from './gamification.listener';
 import { GamificationScheduler } from './gamification.scheduler';
 import { MissionProgressService } from './mission-progress.service';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, AuthModule],
   controllers: [GamificationController],
   providers: [
     GamificationService,
