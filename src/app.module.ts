@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -30,6 +32,23 @@ import { AuthModule } from './auth/auth.module';
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
+    // Generous by default: a device coming back online flushes its whole outbox
+    // in a couple of seconds, and that is normal traffic, not abuse. The auth
+    // routes that send email are tightened individually.
+    ThrottlerModule.forRoot({
+      throttlers: [{ name: 'default', ttl: 60_000, limit: 120 }],
+      // The default reads "ThrottlerException: Too Many Requests", and the
+      // frontend shows `message` to the user as it comes. Say how long the
+      // wait is instead, because "try again later" with no number just makes
+      // people tap the button again.
+      errorMessage: (_context, detail) => {
+        const minutes = Math.ceil(detail.timeToBlockExpire / 60);
+
+        return minutes <= 1
+          ? 'Too many attempts. Please wait a minute and try again.'
+          : `Too many attempts. Please try again in ${minutes} minutes.`;
+      },
+    }),
     PrismaModule,
     TasksModule,
     RemindersModule,
@@ -52,6 +71,6 @@ import { AuthModule } from './auth/auth.module';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

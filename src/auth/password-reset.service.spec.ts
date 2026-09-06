@@ -17,6 +17,8 @@ describe('PasswordResetService', () => {
     passwordResetToken: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      // No recent send, so the per-address cooldown never blocks these.
+      findFirst: jest.fn().mockResolvedValue(null),
       update: jest.fn(),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
@@ -86,6 +88,29 @@ describe('PasswordResetService', () => {
       expect(stored).not.toBe(emailed);
       expect(stored).toBe(sha(emailed));
       expect(stored).toMatch(/^[a-f0-9]{64}$/);
+    });
+
+    /** An IP limit cannot protect one mailbox from somebody rotating IPs. */
+    it('sends nothing when a link went out moments ago', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'u1', email: 'a@b.com', passwordHash: 'x' });
+      prisma.passwordResetToken.findFirst.mockResolvedValue({ createdAt: new Date() });
+
+      const result = await service.forgot({ email: 'a@b.com' });
+
+      expect(mail.send).not.toHaveBeenCalled();
+      // Still the same answer, so the cooldown is not observable either.
+      expect(result.message).toMatch(/If an account exists/);
+    });
+
+    it('sends again once the cooldown has passed', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'u1', email: 'a@b.com', passwordHash: 'x' });
+      prisma.passwordResetToken.findFirst.mockResolvedValue({
+        createdAt: new Date(Date.now() - 120_000),
+      });
+
+      await service.forgot({ email: 'a@b.com' });
+
+      expect(mail.send).toHaveBeenCalled();
     });
 
     it('invalidates any earlier unused link', async () => {

@@ -1,5 +1,6 @@
 import { Body, Controller, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from '../user/dto/create-user.dto';
@@ -26,18 +27,22 @@ export class AuthController {
     private readonly verification: EmailVerificationService,
   ) {}
 
+  @Throttle({ default: { ttl: 3_600_000, limit: 5 } })
   @Post('register')
   @ApiOperation({ summary: 'Register with email and password' })
   register(@Body() dto: CreateUserDto) {
     return this.authService.register(dto);
   }
 
+  // Slows password guessing without getting in a real person's way.
+  @Throttle({ default: { ttl: 300_000, limit: 10 } })
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
+  @Throttle({ default: { ttl: 900_000, limit: 10 } })
   @Post('verify-email')
   @ApiOperation({
     summary: 'Confirm an email address using the token from the link',
@@ -47,6 +52,9 @@ export class AuthController {
     return this.verification.verify(dto.token);
   }
 
+  // Sends mail to any address the caller names, so this is the one worth
+  // holding down hard.
+  @Throttle({ default: { ttl: 900_000, limit: 3 } })
   @Post('resend-verification')
   @ApiOperation({
     summary: 'Send another confirmation link',
@@ -56,6 +64,7 @@ export class AuthController {
     return this.verification.resend(dto.email);
   }
 
+  @Throttle({ default: { ttl: 900_000, limit: 3 } })
   @Post('forgot-password')
   @ApiOperation({
     summary: 'Ask for a reset link',
@@ -66,6 +75,7 @@ export class AuthController {
     return this.passwords.forgot(dto);
   }
 
+  @Throttle({ default: { ttl: 900_000, limit: 10 } })
   @Post('reset-password')
   @ApiOperation({
     summary: 'Set a new password using the token from the email',

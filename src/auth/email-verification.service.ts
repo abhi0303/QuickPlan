@@ -6,6 +6,9 @@ import { MailService } from '../mail/mail.service';
 
 const TOKEN_TTL_HOURS = 24;
 
+/** Keyed on the address, because an IP limit cannot protect one mailbox. */
+const RESEND_COOLDOWN_MS = 60_000;
+
 @Injectable()
 export class EmailVerificationService {
   private readonly logger = new Logger(EmailVerificationService.name);
@@ -113,7 +116,7 @@ export class EmailVerificationService {
     const normalised = email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email: normalised } });
 
-    if (user && !user.emailVerifiedAt) {
+    if (user && !user.emailVerifiedAt && !(await this.recentlySent(user.id))) {
       await this.issue(user.id, normalised, user.name);
     }
 
@@ -138,6 +141,16 @@ export class EmailVerificationService {
     });
 
     return count;
+  }
+
+  private async recentlySent(userId: string): Promise<boolean> {
+    const latest = await this.prisma.emailVerificationToken.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+
+    return latest !== null && Date.now() - latest.createdAt.getTime() < RESEND_COOLDOWN_MS;
   }
 
   private hash(token: string): string {

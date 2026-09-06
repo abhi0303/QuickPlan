@@ -16,6 +16,8 @@ describe('EmailVerificationService', () => {
     emailVerificationToken: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      // No recent send, so the per-address cooldown never blocks these.
+      findFirst: jest.fn().mockResolvedValue(null),
       update: jest.fn(),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
@@ -139,6 +141,16 @@ describe('EmailVerificationService', () => {
       const real = await service.resend('a@b.com');
 
       expect(unknown).toEqual(real);
+    });
+
+    it('sends nothing when a link went out moments ago', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'u1', name: 'A', emailVerifiedAt: null });
+      prisma.emailVerificationToken.findFirst.mockResolvedValue({ createdAt: new Date() });
+
+      const result = await service.resend('a@b.com');
+
+      expect(mail.send).not.toHaveBeenCalled();
+      expect(result.message).toMatch(/If that address needs confirming/);
     });
 
     it('sends nothing to an address that is already confirmed', async () => {
