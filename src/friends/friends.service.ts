@@ -5,6 +5,15 @@ import { friendAdded } from '../notifications/notification-events';
 
 const USER_CARD = { id: true, name: true, email: true } as const;
 
+/**
+ * Somebody who has not confirmed their address is a half-finished signup, not
+ * a person. They cannot sign in, so they can never see a group they were put
+ * in or settle a debt recorded against them - and an expense split with one of
+ * them is a share nobody will ever pay. They stay in the table, invisible,
+ * until they confirm.
+ */
+const CONFIRMED = { emailVerifiedAt: { not: null } } as const;
+
 @Injectable()
 export class FriendsService {
   constructor(
@@ -27,6 +36,7 @@ export class FriendsService {
     const [users, friendships] = await Promise.all([
       this.prisma.user.findMany({
         where: {
+          ...CONFIRMED,
           id: { not: userId },
           OR: [
             { name: { contains: term, mode: 'insensitive' } },
@@ -54,8 +64,8 @@ export class FriendsService {
       throw new BadRequestException('You cannot add yourself as a friend.');
     }
 
-    const friend = await this.prisma.user.findUnique({
-      where: { id: friendId },
+    const friend = await this.prisma.user.findFirst({
+      where: { id: friendId, ...CONFIRMED },
       select: USER_CARD,
     });
 
@@ -93,7 +103,7 @@ export class FriendsService {
 
   async listFriends(userId: string) {
     const friendships = await this.prisma.friendship.findMany({
-      where: { userId },
+      where: { userId, friend: CONFIRMED },
       include: { friend: { select: USER_CARD } },
       orderBy: { friend: { name: 'asc' } },
     });
