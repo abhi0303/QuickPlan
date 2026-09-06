@@ -8,6 +8,13 @@ import { ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from './dto/pa
 
 const TOKEN_TTL_MINUTES = 60;
 
+/**
+ * A second limit, keyed on the address rather than the caller. The IP throttle
+ * cannot protect one mailbox from somebody rotating IPs, and the person being
+ * spammed is the one who never asked for any of it.
+ */
+const RESEND_COOLDOWN_MS = 60_000;
+
 @Injectable()
 export class PasswordResetService {
   private readonly logger = new Logger(PasswordResetService.name);
@@ -27,7 +34,7 @@ export class PasswordResetService {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email } });
 
-    if (user?.passwordHash) {
+    if (user?.passwordHash && !(await this.recentlySent(user.id))) {
       const token = randomBytes(32).toString('base64url');
 
       await this.prisma.$transaction([
@@ -131,6 +138,17 @@ export class PasswordResetService {
     });
 
     return count;
+  }
+
+  /** True when a link went out to this account within the cooldown. */
+  private async recentlySent(userId: string): Promise<boolean> {
+    const latest = await this.prisma.passwordResetToken.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+
+    return latest !== null && Date.now() - latest.createdAt.getTime() < RESEND_COOLDOWN_MS;
   }
 
   private hash(token: string): string {

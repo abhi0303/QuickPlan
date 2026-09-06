@@ -7,6 +7,11 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Render terminates TLS at its own proxy, so without this every request looks
+  // like it came from that proxy and an IP-based rate limit would throttle all
+  // users as if they were one person.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   // Browsers send Origin as scheme + host + port, with no trailing slash or
   // path, and the cors package matches it as an exact string. Normalise the
   // configured values so "https://site.io/" or "https://site.io/app" still match.
