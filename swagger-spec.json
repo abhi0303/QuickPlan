@@ -3373,11 +3373,16 @@
             "example": "strong-password",
             "minLength": 8
           },
-          "upiId": {
-            "type": "string",
-            "example": "abhinav@okhdfcbank",
-            "description": "UPI VPA shown to people who owe you money. Send null to remove it.",
-            "nullable": true
+          "upiIds": {
+            "example": [
+              "abhinav@okhdfcbank",
+              "abhinav@ybl"
+            ],
+            "description": "UPI VPAs shown to people who owe you money, best one first. Send [] or null to remove them all.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

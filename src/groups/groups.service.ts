@@ -16,7 +16,7 @@ import {
 
 const MEMBER_INCLUDE = {
   members: {
-    include: { user: { select: { id: true, name: true, email: true, upiId: true } } },
+    include: { user: { select: { id: true, name: true, email: true, upiIds: true } } },
     orderBy: { joinedAt: 'asc' as const },
   },
 };
@@ -326,7 +326,7 @@ export class GroupsService {
     const [members, expenses, shares, settlements] = await Promise.all([
       this.prisma.groupMember.findMany({
         where: { groupId },
-        include: { user: { select: { id: true, name: true, email: true, upiId: true } } },
+        include: { user: { select: { id: true, name: true, email: true, upiIds: true } } },
       }),
       this.prisma.expense.groupBy({
         by: ['paidById'],
@@ -362,7 +362,7 @@ export class GroupsService {
         userId: member.userId,
         name: member.user.name,
         email: member.user.email,
-        upiId: member.user.upiId,
+        upiIds: member.user.upiIds,
         role: member.role,
         paid: toNumber(paidTotal),
         owed: toNumber(owedTotal),
@@ -392,9 +392,9 @@ export class GroupsService {
         fromName: byId.get(t.fromUserId)?.name ?? null,
         toUserId: t.toUserId,
         toName: byId.get(t.toUserId)?.name ?? null,
-        // The payee's handle, so "settle up" can open a UPI app rather than
-        // ending in "what's your ID?". Null when they have not published one.
-        toUpiId: byId.get(t.toUserId)?.upiId ?? null,
+        // The payee's handles, so "settle up" can open a UPI app rather than
+        // ending in "what's your ID?". Empty when they have published none.
+        toUpiIds: byId.get(t.toUserId)?.upiIds ?? [],
         amount: toNumber(t.amount),
       })),
       myNetBalance: byId.get(userId)?.net ?? 0,
