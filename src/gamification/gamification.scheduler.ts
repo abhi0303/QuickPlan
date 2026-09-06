@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { GamificationService } from './gamification.service';
 import { NotificationFeedService } from '../notifications/notification-feed.service';
 import { PasswordResetService } from '../auth/password-reset.service';
+import { EmailVerificationService } from '../auth/email-verification.service';
 
 @Injectable()
 export class GamificationScheduler {
@@ -12,6 +13,7 @@ export class GamificationScheduler {
     private readonly gamification: GamificationService,
     private readonly feed: NotificationFeedService,
     private readonly passwords: PasswordResetService,
+    private readonly verification: EmailVerificationService,
   ) {}
 
   /**
@@ -45,6 +47,12 @@ export class GamificationScheduler {
 
     if (removed > 0) {
       this.logger.log(`Purged ${removed} spent or expired password reset token(s)`);
+    }
+
+    const verifications = await this.verification.purgeExpired();
+
+    if (verifications > 0) {
+      this.logger.log(`Purged ${verifications} spent or expired verification token(s)`);
     }
   }
 }

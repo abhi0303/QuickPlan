@@ -1548,6 +1548,336 @@
         ]
       }
     },
+    "/api/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "summary": "Register with email and password",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "summary": "Login with email and password",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/verify-email": {
+      "post": {
+        "operationId": "AuthController_verifyEmail",
+        "summary": "Confirm an email address using the token from the link",
+        "description": "Clicking the link twice reads as success, not as an error.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/resend-verification": {
+      "post": {
+        "operationId": "AuthController_resendVerification",
+        "summary": "Send another confirmation link",
+        "description": "Answers the same way whether or not the address needs confirming.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendVerificationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "operationId": "AuthController_forgotPassword",
+        "summary": "Ask for a reset link",
+        "description": "Always answers the same way, whether or not the address has an account — otherwise this endpoint would reveal who is registered.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "summary": "Set a new password using the token from the email",
+        "description": "The link is single-use and expires after an hour.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/change-password": {
+      "patch": {
+        "operationId": "AuthController_changePassword",
+        "summary": "Change your password while signed in",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/user/register": {
+      "post": {
+        "operationId": "UserController_registerUser",
+        "summary": "Register a new user profile with default settings",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "User & Settings"
+        ]
+      }
+    },
+    "/api/user/me": {
+      "get": {
+        "operationId": "UserController_getProfile",
+        "summary": "Get current user profile and settings",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "User & Settings"
+        ]
+      },
+      "patch": {
+        "operationId": "UserController_updateProfile",
+        "summary": "Update user profile (name, email)",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "User & Settings"
+        ]
+      }
+    },
+    "/api/user/settings": {
+      "get": {
+        "operationId": "UserController_getSettings",
+        "summary": "Get user configuration settings",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "User & Settings"
+        ]
+      },
+      "patch": {
+        "operationId": "UserController_updateSettings",
+        "summary": "Update user configuration settings",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "User & Settings"
+        ]
+      }
+    },
     "/api/onboarding": {
       "get": {
         "operationId": "OnboardingController_getTour",
@@ -2162,284 +2492,6 @@
         },
         "tags": [
           "AI Smart Input"
-        ]
-      }
-    },
-    "/api/user/register": {
-      "post": {
-        "operationId": "UserController_registerUser",
-        "summary": "Register a new user profile with default settings",
-        "parameters": [
-          {
-            "name": "x-user-id",
-            "in": "header",
-            "description": "User ID header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateUserDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "User & Settings"
-        ]
-      }
-    },
-    "/api/user/me": {
-      "get": {
-        "operationId": "UserController_getProfile",
-        "summary": "Get current user profile and settings",
-        "parameters": [
-          {
-            "name": "x-user-id",
-            "in": "header",
-            "description": "User ID header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "User & Settings"
-        ]
-      },
-      "patch": {
-        "operationId": "UserController_updateProfile",
-        "summary": "Update user profile (name, email)",
-        "parameters": [
-          {
-            "name": "x-user-id",
-            "in": "header",
-            "description": "User ID header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateUserDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "User & Settings"
-        ]
-      }
-    },
-    "/api/user/settings": {
-      "get": {
-        "operationId": "UserController_getSettings",
-        "summary": "Get user configuration settings",
-        "parameters": [
-          {
-            "name": "x-user-id",
-            "in": "header",
-            "description": "User ID header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "User & Settings"
-        ]
-      },
-      "patch": {
-        "operationId": "UserController_updateSettings",
-        "summary": "Update user configuration settings",
-        "parameters": [
-          {
-            "name": "x-user-id",
-            "in": "header",
-            "description": "User ID header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateSettingsDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "User & Settings"
-        ]
-      }
-    },
-    "/api/auth/register": {
-      "post": {
-        "operationId": "AuthController_register",
-        "summary": "Register with email and password",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateUserDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Authentication"
-        ]
-      }
-    },
-    "/api/auth/login": {
-      "post": {
-        "operationId": "AuthController_login",
-        "summary": "Login with email and password",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Authentication"
-        ]
-      }
-    },
-    "/api/auth/forgot-password": {
-      "post": {
-        "operationId": "AuthController_forgotPassword",
-        "summary": "Ask for a reset link",
-        "description": "Always answers the same way, whether or not the address has an account — otherwise this endpoint would reveal who is registered.",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ForgotPasswordDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Authentication"
-        ]
-      }
-    },
-    "/api/auth/reset-password": {
-      "post": {
-        "operationId": "AuthController_resetPassword",
-        "summary": "Set a new password using the token from the email",
-        "description": "The link is single-use and expires after an hour.",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResetPasswordDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Authentication"
-        ]
-      }
-    },
-    "/api/auth/change-password": {
-      "patch": {
-        "operationId": "AuthController_changePassword",
-        "summary": "Change your password while signed in",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChangePasswordDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Authentication"
         ]
       }
     }
@@ -3186,6 +3238,183 @@
           "amount"
         ]
       },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "User full name (mandatory)",
+            "example": "Abhi Sharma"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email address (mandatory)",
+            "example": "abhi@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "Account password (mandatory)",
+            "example": "strong-password",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "abhi@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "strong-password",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "VerifyEmailDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The token from the confirmation link"
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "ResendVerificationDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "abhi@example.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "ForgotPasswordDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "abhi@example.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "ResetPasswordDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The token from the emailed link"
+          },
+          "password": {
+            "type": "string",
+            "example": "a-new-strong-password",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ]
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "description": "Your current password"
+          },
+          "password": {
+            "type": "string",
+            "example": "a-new-strong-password",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "currentPassword",
+          "password"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "User full name (mandatory)",
+            "example": "Abhi Sharma"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email address (mandatory)",
+            "example": "abhi@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "Account password (mandatory)",
+            "example": "strong-password",
+            "minLength": 8
+          }
+        }
+      },
+      "UpdateSettingsDto": {
+        "type": "object",
+        "properties": {
+          "inputLanguage": {
+            "type": "string",
+            "description": "Preferred input language: AUTO, HINDI, ENGLISH",
+            "example": "AUTO"
+          },
+          "outputLanguage": {
+            "type": "string",
+            "description": "Preferred output language: SAME, HINDI, ENGLISH",
+            "example": "SAME"
+          },
+          "notificationsEnabled": {
+            "type": "boolean",
+            "description": "Notification master toggle flag",
+            "example": true
+          },
+          "defaultReminderOffsetMinutes": {
+            "type": "number",
+            "description": "Default reminder offset minutes",
+            "example": 15
+          },
+          "defaultPriority": {
+            "type": "string",
+            "description": "Default task priority: LOW, MEDIUM, HIGH, URGENT",
+            "example": "MEDIUM"
+          },
+          "defaultCategory": {
+            "type": "string",
+            "description": "Default task category",
+            "example": "General"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Default currency symbol/code",
+            "example": "INR"
+          }
+        }
+      },
       "UpdateTourProgressDto": {
         "type": "object",
         "properties": {
@@ -3383,159 +3612,6 @@
         },
         "required": [
           "text"
-        ]
-      },
-      "CreateUserDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "User full name (mandatory)",
-            "example": "Abhi Sharma"
-          },
-          "email": {
-            "type": "string",
-            "description": "User email address (mandatory)",
-            "example": "abhi@example.com"
-          },
-          "password": {
-            "type": "string",
-            "description": "Account password (mandatory)",
-            "example": "strong-password",
-            "minLength": 8
-          }
-        },
-        "required": [
-          "name",
-          "email",
-          "password"
-        ]
-      },
-      "UpdateUserDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "User full name (mandatory)",
-            "example": "Abhi Sharma"
-          },
-          "email": {
-            "type": "string",
-            "description": "User email address (mandatory)",
-            "example": "abhi@example.com"
-          },
-          "password": {
-            "type": "string",
-            "description": "Account password (mandatory)",
-            "example": "strong-password",
-            "minLength": 8
-          }
-        }
-      },
-      "UpdateSettingsDto": {
-        "type": "object",
-        "properties": {
-          "inputLanguage": {
-            "type": "string",
-            "description": "Preferred input language: AUTO, HINDI, ENGLISH",
-            "example": "AUTO"
-          },
-          "outputLanguage": {
-            "type": "string",
-            "description": "Preferred output language: SAME, HINDI, ENGLISH",
-            "example": "SAME"
-          },
-          "notificationsEnabled": {
-            "type": "boolean",
-            "description": "Notification master toggle flag",
-            "example": true
-          },
-          "defaultReminderOffsetMinutes": {
-            "type": "number",
-            "description": "Default reminder offset minutes",
-            "example": 15
-          },
-          "defaultPriority": {
-            "type": "string",
-            "description": "Default task priority: LOW, MEDIUM, HIGH, URGENT",
-            "example": "MEDIUM"
-          },
-          "defaultCategory": {
-            "type": "string",
-            "description": "Default task category",
-            "example": "General"
-          },
-          "currency": {
-            "type": "string",
-            "description": "Default currency symbol/code",
-            "example": "INR"
-          }
-        }
-      },
-      "LoginDto": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "example": "abhi@example.com"
-          },
-          "password": {
-            "type": "string",
-            "example": "strong-password",
-            "minLength": 8
-          }
-        },
-        "required": [
-          "email",
-          "password"
-        ]
-      },
-      "ForgotPasswordDto": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "example": "abhi@example.com"
-          }
-        },
-        "required": [
-          "email"
-        ]
-      },
-      "ResetPasswordDto": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string",
-            "description": "The token from the emailed link"
-          },
-          "password": {
-            "type": "string",
-            "example": "a-new-strong-password",
-            "minLength": 8
-          }
-        },
-        "required": [
-          "token",
-          "password"
-        ]
-      },
-      "ChangePasswordDto": {
-        "type": "object",
-        "properties": {
-          "currentPassword": {
-            "type": "string",
-            "description": "Your current password"
-          },
-          "password": {
-            "type": "string",
-            "example": "a-new-strong-password",
-            "minLength": 8
-          }
-        },
-        "required": [
-          "currentPassword",
-          "password"
         ]
       }
     }

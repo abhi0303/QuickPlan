@@ -30,3 +30,16 @@ export class ChangePasswordDto {
   @MinLength(8)
   password: string;
 }
+
+export class VerifyEmailDto {
+  @ApiProperty({ description: 'The token from the confirmation link' })
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+}
+
+export class ResendVerificationDto {
+  @ApiProperty({ example: 'abhi@example.com' })
+  @IsEmail()
+  email: string;
+}
