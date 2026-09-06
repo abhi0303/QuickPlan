@@ -6,6 +6,13 @@ import { EmailVerificationService } from './email-verification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 
+/**
+ * The mail flows deliberately finish after the response has been returned, so
+ * that a registered address and an unknown one take the same time to answer.
+ * Tests have to let those settle before asserting on them.
+ */
+const flush = () => new Promise((resolve) => setImmediate(resolve));
+
 const sha = (t: string) => createHash('sha256').update(t).digest('hex');
 
 describe('EmailVerificationService', () => {
@@ -24,7 +31,11 @@ describe('EmailVerificationService', () => {
     $transaction: jest.fn((ops: unknown[]) => Promise.all(ops as Promise<unknown>[])),
   };
 
-  const mail = { send: jest.fn().mockResolvedValue(true), isConfigured: jest.fn(() => true) };
+  const mail = {
+    send: jest.fn().mockResolvedValue(true),
+    dispatch: jest.fn(),
+    isConfigured: jest.fn(() => true),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -46,7 +57,7 @@ describe('EmailVerificationService', () => {
       await service.issue('u1', 'a@b.com', 'A');
 
       const stored = prisma.emailVerificationToken.create.mock.calls[0][0].data.tokenHash;
-      const emailed = mail.send.mock.calls[0][2].match(/token=([A-Za-z0-9_-]+)/)[1];
+      const emailed = mail.dispatch.mock.calls[0][2].match(/token=([A-Za-z0-9_-]+)/)[1];
 
       expect(stored).toBe(sha(emailed));
       expect(stored).not.toBe(emailed);
@@ -73,7 +84,7 @@ describe('EmailVerificationService', () => {
         where: { id: 'u1' },
         data: { emailVerifiedAt: expect.any(Date) },
       });
-      expect(mail.send).not.toHaveBeenCalled();
+      expect(mail.dispatch).not.toHaveBeenCalled();
       expect(service.enforced()).toBe(false);
     });
   });
@@ -136,9 +147,11 @@ describe('EmailVerificationService', () => {
     it('answers identically for a stranger and a real unconfirmed address', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
       const unknown = await service.resend('nobody@b.com');
+      await flush();
 
       prisma.user.findUnique.mockResolvedValue({ id: 'u1', name: 'A', emailVerifiedAt: null });
       const real = await service.resend('a@b.com');
+      await flush();
 
       expect(unknown).toEqual(real);
     });
@@ -149,7 +162,9 @@ describe('EmailVerificationService', () => {
 
       const result = await service.resend('a@b.com');
 
-      expect(mail.send).not.toHaveBeenCalled();
+      await flush();
+
+      expect(mail.dispatch).not.toHaveBeenCalled();
       expect(result.message).toMatch(/If that address needs confirming/);
     });
 
@@ -158,7 +173,9 @@ describe('EmailVerificationService', () => {
 
       await service.resend('a@b.com');
 
-      expect(mail.send).not.toHaveBeenCalled();
+      await flush();
+
+      expect(mail.dispatch).not.toHaveBeenCalled();
     });
   });
 

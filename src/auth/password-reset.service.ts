@@ -34,29 +34,49 @@ export class PasswordResetService {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email } });
 
-    if (user?.passwordHash && !(await this.recentlySent(user.id))) {
-      const token = randomBytes(32).toString('base64url');
-
-      await this.prisma.$transaction([
-        // Requesting again invalidates the previous link, so only the newest
-        // email in the inbox works.
-        this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id, usedAt: null } }),
-        this.prisma.passwordResetToken.create({
-          data: {
-            userId: user.id,
-            tokenHash: this.hash(token),
-            expiresAt: new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000),
-          },
-        }),
-      ]);
-
-      await this.sendResetEmail(email, user.name, token);
+    // Both branches do exactly one indexed lookup and nothing else before
+    // answering. Everything expensive - the cooldown check, the token write,
+    // the mail - happens after the response, because a registered address that
+    // takes half a second longer than an unknown one is just enumeration with
+    // extra steps, and identical wording does not help.
+    if (user?.passwordHash) {
+      void this.issueResetToken(user.id, email, user.name);
     }
 
     return {
       message:
         'If an account exists for that address, a reset link is on its way. It expires in an hour.',
     };
+  }
+
+  /** Runs after the response has gone out. Never throws into the request. */
+  private async issueResetToken(userId: string, email: string, name: string | null): Promise<void> {
+    try {
+      if (await this.recentlySent(userId)) {
+        return;
+      }
+
+      const token = randomBytes(32).toString('base64url');
+
+      await this.prisma.$transaction([
+        // Requesting again invalidates the previous link, so only the newest
+        // email in the inbox works.
+        this.prisma.passwordResetToken.deleteMany({ where: { userId, usedAt: null } }),
+        this.prisma.passwordResetToken.create({
+          data: {
+            userId,
+            tokenHash: this.hash(token),
+            expiresAt: new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000),
+          },
+        }),
+      ]);
+
+      this.sendResetEmail(email, name, token);
+    } catch (error) {
+      this.logger.error(
+        `Could not issue a reset link: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   async reset(dto: ResetPasswordDto) {
@@ -90,13 +110,7 @@ export class PasswordResetService {
     ]);
 
     if (record.user.email) {
-      await this.mail.send(
-        record.user.email,
-        'Your QuickPlan password was changed',
-        `Hi${record.user.name ? ` ${record.user.name}` : ''},\n\n` +
-          'Your QuickPlan password has just been changed, and you have been signed out everywhere.\n\n' +
-          'If this was not you, reset it again immediately.',
-      );
+      this.notifyPasswordChanged(record.user.email, record.user.name);
     }
 
     return { message: 'Your password has been changed. Please sign in again.' };
@@ -128,7 +142,32 @@ export class PasswordResetService {
       },
     });
 
+    // The same warning a reset sends. Somebody who has taken over a live
+    // session can change the password from Settings, and the real owner has no
+    // other way of finding out.
+    if (user.email) {
+      this.notifyPasswordChanged(user.email, user.name);
+    }
+
     return { message: 'Your password has been changed. Please sign in again.' };
+  }
+
+  /**
+   * Sent however the password changed - reset link or Settings. This is the
+   * only thing that tells somebody their account has been taken over, so it
+   * must not depend on which route was used.
+   */
+  private notifyPasswordChanged(email: string, name: string | null): void {
+    this.mail.dispatch(
+      email,
+      'Your QuickPlan password was changed',
+      `Hi${name ? ` ${name}` : ''},\n\n` +
+        `The password for ${email} has just been changed, and you have been signed out everywhere.\n\n` +
+        'If this was not you, reset it again immediately.',
+      `<p>Hi${name ? ` ${name}` : ''},</p>
+       <p>The password for <strong>${email}</strong> has just been changed, and you have been signed out everywhere.</p>
+       <p>If this was not you, reset it again immediately.</p>`,
+    );
   }
 
   /** Expired and used tokens are of no further use to anyone. */
@@ -155,20 +194,23 @@ export class PasswordResetService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private async sendResetEmail(email: string, name: string | null, token: string) {
+  private sendResetEmail(email: string, name: string | null, token: string): void {
     const base = this.config.get<string>('APP_URL', 'https://abhi0303.github.io/QuickPlan-FE');
     const link = `${base}/reset-password?token=${token}`;
 
-    await this.mail.send(
+    this.mail.dispatch(
       email,
       'Reset your QuickPlan password',
       `Hi${name ? ` ${name}` : ''},\n\n` +
-        `Use this link to set a new password. It expires in ${TOKEN_TTL_MINUTES} minutes and can only be used once:\n\n` +
+        `Use this link to set a new password for ${email}. It expires in ${TOKEN_TTL_MINUTES} minutes and can only be used once:\n\n` +
         `${link}\n\n` +
         'If you did not ask for this, you can ignore this email — nothing has changed.',
       `<p>Hi${name ? ` ${name}` : ''},</p>
+       <p>Set a new password for <strong>${email}</strong>:</p>
        <p><a href="${link}">Set a new password</a></p>
        <p>The link expires in ${TOKEN_TTL_MINUTES} minutes and can only be used once.</p>
+       <p>If the button does not work, paste this into your browser:<br>
+          <span style="word-break:break-all">${link}</span></p>
        <p>If you did not ask for this, you can ignore this email — nothing has changed.</p>`,
     );
   }

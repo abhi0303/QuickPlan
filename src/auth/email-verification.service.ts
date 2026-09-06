@@ -62,16 +62,19 @@ export class EmailVerificationService {
     const base = this.config.get<string>('APP_URL', 'https://abhi0303.github.io/QuickPlan-FE');
     const link = `${base}/verify-email?token=${token}`;
 
-    await this.mail.send(
+    this.mail.dispatch(
       email,
       'Confirm your QuickPlan email',
       `Hi${name ? ` ${name}` : ''},\n\n` +
-        `Confirm this address to finish setting up your account. The link expires in ${TOKEN_TTL_HOURS} hours:\n\n` +
+        `Confirm ${email} to finish setting up your account. The link expires in ${TOKEN_TTL_HOURS} hours:\n\n` +
         `${link}\n\n` +
         'If you did not create a QuickPlan account, ignore this email.',
       `<p>Hi${name ? ` ${name}` : ''},</p>
+       <p>Confirm <strong>${email}</strong> to finish setting up your account:</p>
        <p><a href="${link}">Confirm your email</a></p>
        <p>The link expires in ${TOKEN_TTL_HOURS} hours.</p>
+       <p>If the button does not work, paste this into your browser:<br>
+          <span style="word-break:break-all">${link}</span></p>
        <p>If you did not create a QuickPlan account, ignore this email.</p>`,
     );
   }
@@ -116,14 +119,29 @@ export class EmailVerificationService {
     const normalised = email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email: normalised } });
 
-    if (user && !user.emailVerifiedAt && !(await this.recentlySent(user.id))) {
-      await this.issue(user.id, normalised, user.name);
+    // Deferred for the same reason as the reset flow: one lookup on both
+    // branches, so the response time says nothing about who is registered.
+    if (user && !user.emailVerifiedAt) {
+      void this.reissue(user.id, normalised, user.name);
     }
 
     return {
       message:
         'If that address needs confirming, a new link is on its way. It expires in 24 hours.',
     };
+  }
+
+  /** Runs after the response has gone out. Never throws into the request. */
+  private async reissue(userId: string, email: string, name: string | null): Promise<void> {
+    try {
+      if (!(await this.recentlySent(userId))) {
+        await this.issue(userId, email, name);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Could not issue a confirmation link: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /** Login calls this. An unconfirmed address cannot sign in. */
