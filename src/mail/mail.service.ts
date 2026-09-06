@@ -68,6 +68,23 @@ export class MailService implements OnModuleInit {
     return this.brevoKey !== null || this.transporter !== null;
   }
 
+  /**
+   * Send without making the caller wait.
+   *
+   * forgot-password and resend-verification have to answer identically for a
+   * registered and an unregistered address. Awaiting a mail round-trip on only
+   * one of those branches makes them trivially distinguishable with a
+   * stopwatch, which defeats the point of the identical wording. Nothing the
+   * caller does depends on the result, and failures are already logged.
+   */
+  dispatch(to: string, subject: string, text: string, html?: string): void {
+    void this.send(to, subject, text, html).catch((error) => {
+      this.logger.error(
+        `Dispatching "${subject}" failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
+  }
+
   async send(to: string, subject: string, text: string, html?: string): Promise<boolean> {
     if (this.brevoKey) {
       return this.sendViaBrevo(to, subject, text, html);

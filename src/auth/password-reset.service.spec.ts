@@ -7,6 +7,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserService } from '../user/user.service';
 import { MailService } from '../mail/mail.service';
 
+/**
+ * The mail flows deliberately finish after the response has been returned, so
+ * that a registered address and an unknown one take the same time to answer.
+ * Tests have to let those settle before asserting on them.
+ */
+const flush = () => new Promise((resolve) => setImmediate(resolve));
+
 const sha = (t: string) => createHash('sha256').update(t).digest('hex');
 
 describe('PasswordResetService', () => {
@@ -29,7 +36,7 @@ describe('PasswordResetService', () => {
     hashPassword: jest.fn().mockResolvedValue('hashed'),
     verifyPassword: jest.fn(),
   };
-  const mail = { send: jest.fn().mockResolvedValue(true) };
+  const mail = { send: jest.fn().mockResolvedValue(true), dispatch: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -52,9 +59,11 @@ describe('PasswordResetService', () => {
     it('answers identically whether or not the account exists', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: 'u1', email: 'a@b.com', passwordHash: 'x' });
       const found = await service.forgot({ email: 'a@b.com' });
+      await flush();
 
       prisma.user.findUnique.mockResolvedValue(null);
       const missing = await service.forgot({ email: 'nobody@b.com' });
+      await flush();
 
       expect(found).toEqual(missing);
     });
@@ -64,7 +73,9 @@ describe('PasswordResetService', () => {
 
       await service.forgot({ email: 'nobody@b.com' });
 
-      expect(mail.send).not.toHaveBeenCalled();
+      await flush();
+
+      expect(mail.dispatch).not.toHaveBeenCalled();
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
     });
 
@@ -73,7 +84,9 @@ describe('PasswordResetService', () => {
 
       await service.forgot({ email: 'a@b.com' });
 
-      expect(mail.send).not.toHaveBeenCalled();
+      await flush();
+
+      expect(mail.dispatch).not.toHaveBeenCalled();
     });
 
     /** Only a hash is kept: a leaked database must not hand over a working link. */
@@ -82,8 +95,10 @@ describe('PasswordResetService', () => {
 
       await service.forgot({ email: 'a@b.com' });
 
+      await flush();
+
       const stored = prisma.passwordResetToken.create.mock.calls[0][0].data.tokenHash;
-      const emailed = mail.send.mock.calls[0][2].match(/token=([A-Za-z0-9_-]+)/)[1];
+      const emailed = mail.dispatch.mock.calls[0][2].match(/token=([A-Za-z0-9_-]+)/)[1];
 
       expect(stored).not.toBe(emailed);
       expect(stored).toBe(sha(emailed));
@@ -97,7 +112,9 @@ describe('PasswordResetService', () => {
 
       const result = await service.forgot({ email: 'a@b.com' });
 
-      expect(mail.send).not.toHaveBeenCalled();
+      await flush();
+
+      expect(mail.dispatch).not.toHaveBeenCalled();
       // Still the same answer, so the cooldown is not observable either.
       expect(result.message).toMatch(/If an account exists/);
     });
@@ -110,13 +127,17 @@ describe('PasswordResetService', () => {
 
       await service.forgot({ email: 'a@b.com' });
 
-      expect(mail.send).toHaveBeenCalled();
+      await flush();
+
+      expect(mail.dispatch).toHaveBeenCalled();
     });
 
     it('invalidates any earlier unused link', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: 'u1', email: 'a@b.com', passwordHash: 'x' });
 
       await service.forgot({ email: 'a@b.com' });
+
+      await flush();
 
       expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({
         where: { userId: 'u1', usedAt: null },
@@ -180,7 +201,7 @@ describe('PasswordResetService', () => {
 
       await service.reset({ token: 'raw', password: 'newpassword123' });
 
-      expect(mail.send.mock.calls[0][1]).toMatch(/password was changed/i);
+      expect(mail.dispatch.mock.calls[0][1]).toMatch(/password was changed/i);
     });
   });
 
@@ -214,6 +235,37 @@ describe('PasswordResetService', () => {
         passwordHash: 'hashed',
         passwordChangedAt: expect.any(Date),
       });
+    });
+
+    // Somebody who has taken over a live session can change the password from
+    // Settings. This email is the only way the real owner finds out, so it has
+    // to go out here and not only on the reset path.
+    it('warns the account owner, exactly as a reset does', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        email: 'a@b.com',
+        name: 'Abhi',
+        passwordHash: 'stored',
+      });
+      users.verifyPassword.mockResolvedValue(true);
+
+      await service.change('u1', { currentPassword: 'old12345', password: 'newpassword123' });
+
+      expect(mail.dispatch).toHaveBeenCalled();
+      const [to, subject, body] = mail.dispatch.mock.calls[0];
+      expect(to).toBe('a@b.com');
+      expect(subject).toMatch(/password was changed/i);
+      expect(body).toMatch(/signed out everywhere/i);
+    });
+
+    it('does not fall over for an account with no address on file', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'u1', email: null, name: null, passwordHash: 'stored' });
+      users.verifyPassword.mockResolvedValue(true);
+
+      await expect(
+        service.change('u1', { currentPassword: 'old12345', password: 'newpassword123' }),
+      ).resolves.toBeDefined();
+      expect(mail.dispatch).not.toHaveBeenCalled();
     });
   });
 
