@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { GamificationService } from './gamification.service';
 import { NotificationFeedService } from '../notifications/notification-feed.service';
+import { PasswordResetService } from '../auth/password-reset.service';
 
 @Injectable()
 export class GamificationScheduler {
@@ -10,6 +11,7 @@ export class GamificationScheduler {
   constructor(
     private readonly gamification: GamificationService,
     private readonly feed: NotificationFeedService,
+    private readonly passwords: PasswordResetService,
   ) {}
 
   /**
@@ -33,6 +35,16 @@ export class GamificationScheduler {
 
     if (removed > 0) {
       this.logger.log(`Purged ${removed} notification(s) older than 90 days`);
+    }
+  }
+
+  /** Spent and expired reset tokens are of no further use to anyone. */
+  @Cron(CronExpression.EVERY_6_HOURS)
+  async purgePasswordResets(): Promise<void> {
+    const removed = await this.passwords.purgeExpired();
+
+    if (removed > 0) {
+      this.logger.log(`Purged ${removed} spent or expired password reset token(s)`);
     }
   }
 }

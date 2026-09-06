@@ -111,6 +111,10 @@ model User {
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
   passwordHash          String?
+  /// Set whenever the password changes. Tokens issued before it are refused,
+  /// so resetting a password ends every session that was already open -
+  /// otherwise a reset would not lock out whoever prompted it.
+  passwordChangedAt     DateTime?
   /// Only the running total and the derived level are stored. Level bands and
   /// rank names are static config, never duplicated per user.
   totalXp               Int                @default(0)
@@ -127,23 +131,24 @@ model User {
   tasks                 Task[]
   settings              UserSettings?
 
-  friendsAdded        Friendship[]       @relation("FriendshipOwner")
-  friendsOf           Friendship[]       @relation("FriendshipTarget")
+  friendsAdded        Friendship[]         @relation("FriendshipOwner")
+  friendsOf           Friendship[]         @relation("FriendshipTarget")
   memberships         GroupMember[]
-  groupsCreated       Group[]            @relation("GroupCreator")
-  expensesPaid        Expense[]          @relation("ExpensePaidBy")
-  expensesOwned       Expense[]          @relation("ExpenseOwner")
-  expensesCreated     Expense[]          @relation("ExpenseCreatedBy")
+  groupsCreated       Group[]              @relation("GroupCreator")
+  expensesPaid        Expense[]            @relation("ExpensePaidBy")
+  expensesOwned       Expense[]            @relation("ExpenseOwner")
+  expensesCreated     Expense[]            @relation("ExpenseCreatedBy")
   shares              ExpenseShare[]
-  settlementsPaid     Settlement[]       @relation("SettlementFrom")
-  settlementsGot      Settlement[]       @relation("SettlementTo")
-  settlementsCreated  Settlement[]       @relation("SettlementCreatedBy")
-  notifications       Notification[]     @relation("NotificationRecipient")
-  notificationsCaused Notification[]     @relation("NotificationActor")
+  settlementsPaid     Settlement[]         @relation("SettlementFrom")
+  settlementsGot      Settlement[]         @relation("SettlementTo")
+  settlementsCreated  Settlement[]         @relation("SettlementCreatedBy")
+  notifications       Notification[]       @relation("NotificationRecipient")
+  notificationsCaused Notification[]       @relation("NotificationActor")
   missions            UserMission[]
   budgets             Budget[]
   recurringExpenses   RecurringExpense[]
   plans               BudgetPlan[]
+  passwordResets      PasswordResetToken[]
 }
 
 model UserSettings {
@@ -546,4 +551,20 @@ model BudgetPlanItem {
   @@unique([planId, recurringId])
   @@unique([planId, category])
   @@index([planId])
+}
+
+/// Only a hash of the token is stored. A leaked database should not hand
+/// somebody a working reset link.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }

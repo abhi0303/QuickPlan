@@ -19,6 +19,7 @@ import { BudgetsModule } from './budgets/budgets.module';
 import { RecurringModule } from './recurring/recurring.module';
 import { PlannerModule } from './planner/planner.module';
 import { CashflowModule } from './cashflow/cashflow.module';
+import { MailModule } from './mail/mail.module';
 import { AiModule } from './ai/ai.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UserModule } from './user/user.module';
@@ -44,6 +45,7 @@ import { AuthModule } from './auth/auth.module';
     RecurringModule,
     PlannerModule,
     CashflowModule,
+    MailModule,
     AiModule,
     NotificationsModule,
     UserModule,
