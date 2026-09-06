@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { esc, renderEmail } from '../mail/email-template';
 
 const TOKEN_TTL_HOURS = 24;
 
@@ -69,13 +70,17 @@ export class EmailVerificationService {
         `Confirm ${email} to finish setting up your account. The link expires in ${TOKEN_TTL_HOURS} hours:\n\n` +
         `${link}\n\n` +
         'If you did not create a QuickPlan account, ignore this email.',
-      `<p>Hi${name ? ` ${name}` : ''},</p>
-       <p>Confirm <strong>${email}</strong> to finish setting up your account:</p>
-       <p><a href="${link}">Confirm your email</a></p>
-       <p>The link expires in ${TOKEN_TTL_HOURS} hours.</p>
-       <p>If the button does not work, paste this into your browser:<br>
-          <span style="word-break:break-all">${link}</span></p>
-       <p>If you did not create a QuickPlan account, ignore this email.</p>`,
+      renderEmail({
+        preheader: `Confirm ${email} to finish setting up your QuickPlan account.`,
+        badge: '&#9993;&#65039;',
+        tone: 'primary',
+        heading: 'Confirm your email',
+        greeting: `Hi${name ? ` ${esc(name)}` : ''},`,
+        intro: `You are one tap from your QuickPlan account. Confirm <strong style="color:#10241d;">${esc(email)}</strong> to finish setting it up.`,
+        action: { label: 'Confirm my email', url: link },
+        meta: `&#9201;&nbsp; Expires in ${TOKEN_TTL_HOURS} hours`,
+        footer: 'If you did not create a QuickPlan account, you can ignore this email.',
+      }),
     );
   }
 

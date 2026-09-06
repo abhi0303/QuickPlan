@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserService } from '../user/user.service';
 import { MailService } from '../mail/mail.service';
 import { ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from './dto/password.dto';
+import { esc, renderEmail } from '../mail/email-template';
 
 const TOKEN_TTL_MINUTES = 60;
 
@@ -158,15 +159,28 @@ export class PasswordResetService {
    * must not depend on which route was used.
    */
   private notifyPasswordChanged(email: string, name: string | null): void {
+    const signIn = `${this.config.get<string>('APP_URL', 'https://abhi0303.github.io/QuickPlan-FE')}/auth`;
+
     this.mail.dispatch(
       email,
       'Your QuickPlan password was changed',
       `Hi${name ? ` ${name}` : ''},\n\n` +
         `The password for ${email} has just been changed, and you have been signed out everywhere.\n\n` +
-        'If this was not you, reset it again immediately.',
-      `<p>Hi${name ? ` ${name}` : ''},</p>
-       <p>The password for <strong>${email}</strong> has just been changed, and you have been signed out everywhere.</p>
-       <p>If this was not you, reset it again immediately.</p>`,
+        `If this was not you, reset it immediately: ${signIn}`,
+      renderEmail({
+        preheader: `The password for ${email} was just changed.`,
+        badge: '&#128274;',
+        tone: 'tangerine',
+        heading: 'Your password was changed',
+        greeting: `Hi${name ? ` ${esc(name)}` : ''},`,
+        intro: `The password for <strong style="color:#10241d;">${esc(email)}</strong> has just been changed, and you have been signed out on every device.`,
+        notice: {
+          tone: 'rose',
+          text: '&#9888;&#65039;&nbsp; If this was not you, reset your password immediately — somebody else may have access to your account.',
+        },
+        action: { label: 'Reset it now', url: signIn },
+        footer: 'If you made this change, no further action is needed.',
+      }),
     );
   }
 
@@ -205,13 +219,18 @@ export class PasswordResetService {
         `Use this link to set a new password for ${email}. It expires in ${TOKEN_TTL_MINUTES} minutes and can only be used once:\n\n` +
         `${link}\n\n` +
         'If you did not ask for this, you can ignore this email — nothing has changed.',
-      `<p>Hi${name ? ` ${name}` : ''},</p>
-       <p>Set a new password for <strong>${email}</strong>:</p>
-       <p><a href="${link}">Set a new password</a></p>
-       <p>The link expires in ${TOKEN_TTL_MINUTES} minutes and can only be used once.</p>
-       <p>If the button does not work, paste this into your browser:<br>
-          <span style="word-break:break-all">${link}</span></p>
-       <p>If you did not ask for this, you can ignore this email — nothing has changed.</p>`,
+      renderEmail({
+        preheader: `Set a new password for ${email}. The link expires in ${TOKEN_TTL_MINUTES} minutes.`,
+        badge: '&#128273;',
+        tone: 'periwinkle',
+        heading: 'Reset your password',
+        greeting: `Hi${name ? ` ${esc(name)}` : ''},`,
+        intro: `Tap the button below to set a new password for <strong style="color:#10241d;">${esc(email)}</strong>.`,
+        action: { label: 'Set a new password', url: link },
+        meta: `&#9201;&nbsp; Expires in ${TOKEN_TTL_MINUTES} minutes &middot; single use`,
+        footer:
+          'If you did not ask for this, you can ignore this email — nothing has changed.',
+      }),
     );
   }
 }
