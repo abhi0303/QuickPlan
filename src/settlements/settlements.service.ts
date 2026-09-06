@@ -8,8 +8,8 @@ import { NotificationEmitter } from '../notifications/notification-emitter.servi
 import { settlementRecorded } from '../notifications/notification-events';
 
 const SETTLEMENT_INCLUDE = {
-  from: { select: { id: true, name: true, email: true, upiId: true } },
-  to: { select: { id: true, name: true, email: true, upiId: true } },
+  from: { select: { id: true, name: true, email: true, upiIds: true } },
+  to: { select: { id: true, name: true, email: true, upiIds: true } },
 };
 
 @Injectable()

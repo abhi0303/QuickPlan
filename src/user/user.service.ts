@@ -12,7 +12,7 @@ const PROFILE = {
   id: true,
   name: true,
   email: true,
-  upiId: true,
+  upiIds: true,
   createdAt: true,
   updatedAt: true,
   settings: true,
@@ -127,8 +127,8 @@ export class UserService {
       data: {
         name: dto.name,
         email: dto.email,
-        // undefined leaves it alone; null clears it.
-        upiId: dto.upiId,
+        // undefined leaves the list alone; [] clears it.
+        upiIds: dto.upiIds,
       },
       // An explicit select, because `include` on its own returns every scalar
       // on User - passwordHash and passwordChangedAt included.

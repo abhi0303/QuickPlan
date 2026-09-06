@@ -118,11 +118,12 @@ model User {
   /// Null until the address is confirmed. Login is refused before that, which
   /// is what keeps unowned addresses out of the data.
   emailVerifiedAt       DateTime?
-  /// The VPA other members are shown when they owe this person money, so a
-  /// settlement can be paid without asking for it in the group chat. Optional:
-  /// plenty of people will not want theirs published, and null simply means
-  /// the pay button is not offered.
-  upiId                        String?
+  /// The VPAs other members are shown when they owe this person money, so a
+  /// settlement can be paid without asking for one in the group chat. A list
+  /// because one person often has a bank handle and a wallet, and the payer
+  /// may only have an app for one of them. Order is meaningful: the first is
+  /// the one they would rather be paid on. Empty simply means no pay button.
+  upiIds                       String[]
   /// Only the running total and the derived level are stored. Level bands and
   /// rank names are static config, never duplicated per user.
   totalXp               Int                @default(0)
