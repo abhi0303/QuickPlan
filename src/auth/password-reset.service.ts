@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserService } from '../user/user.service';
 import { MailService } from '../mail/mail.service';
 import { ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from './dto/password.dto';
+import { DEFAULT_APP_URL } from '../common/app-url';
 import { esc, renderEmail } from '../mail/email-template';
 
 const TOKEN_TTL_MINUTES = 60;
@@ -159,7 +160,7 @@ export class PasswordResetService {
    * must not depend on which route was used.
    */
   private notifyPasswordChanged(email: string, name: string | null): void {
-    const signIn = `${this.config.get<string>('APP_URL', 'https://abhi0303.github.io/QuickPlan-FE')}/auth`;
+    const signIn = `${this.config.get<string>('APP_URL', DEFAULT_APP_URL)}/auth`;
 
     this.mail.dispatch(
       email,
@@ -209,7 +210,7 @@ export class PasswordResetService {
   }
 
   private sendResetEmail(email: string, name: string | null, token: string): void {
-    const base = this.config.get<string>('APP_URL', 'https://abhi0303.github.io/QuickPlan-FE');
+    const base = this.config.get<string>('APP_URL', DEFAULT_APP_URL);
     const link = `${base}/reset-password?token=${token}`;
 
     this.mail.dispatch(
