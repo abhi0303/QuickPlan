@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -28,8 +28,38 @@ async function bootstrap() {
     .map((origin) => normaliseOrigin(origin.trim()))
     .filter(Boolean);
 
+  const corsLogger = new Logger('CORS');
+  // A refused origin is otherwise completely silent: the server answers the
+  // preflight 204 with no Allow-Origin header, the browser bins the response,
+  // and the only evidence is a console message on somebody else's machine.
+  // Saying so here turns a guessing game into a log line.
+  const refused = new Set<string>();
+
+  corsLogger.log(
+    allowedOrigins.length
+      ? `Allowing ${allowedOrigins.join(', ')}`
+      : 'CORS_ORIGINS is unset, so every origin is allowed. Set it in production.',
+  );
+
   app.enableCors({
-    origin: allowedOrigins.length ? allowedOrigins : true,
+    origin: allowedOrigins.length
+      ? (origin: string | undefined, callback: (err: Error | null, allow: boolean) => void) => {
+          // No Origin header at all means curl, a health check or a
+          // server-to-server call - not a browser, and nothing to protect.
+          if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+          }
+
+          if (!refused.has(origin)) {
+            refused.add(origin);
+            corsLogger.warn(`Refused ${origin}. CORS_ORIGINS allows: ${allowedOrigins.join(', ')}`);
+          }
+
+          // false, not an error: answer the preflight without the header and
+          // let the browser decide, rather than turning it into a 500.
+          callback(null, false);
+        }
+      : true,
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     // Idempotency-Key is a custom header, so the browser preflights every

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { DEFAULT_APP_URL } from '../common/app-url';
 import { esc, renderEmail } from '../mail/email-template';
 
 const TOKEN_TTL_HOURS = 24;
@@ -60,7 +61,7 @@ export class EmailVerificationService {
       }),
     ]);
 
-    const base = this.config.get<string>('APP_URL', 'https://abhi0303.github.io/QuickPlan-FE');
+    const base = this.config.get<string>('APP_URL', DEFAULT_APP_URL);
     const link = `${base}/verify-email?token=${token}`;
 
     this.mail.dispatch(
