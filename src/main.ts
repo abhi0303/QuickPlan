@@ -29,10 +29,6 @@ async function bootstrap() {
     .filter(Boolean);
 
   const corsLogger = new Logger('CORS');
-  // A refused origin is otherwise completely silent: the server answers the
-  // preflight 204 with no Allow-Origin header, the browser bins the response,
-  // and the only evidence is a console message on somebody else's machine.
-  // Saying so here turns a guessing game into a log line.
   const refused = new Set<string>();
 
   corsLogger.log(
@@ -41,25 +37,28 @@ async function bootstrap() {
       : 'CORS_ORIGINS is unset, so every origin is allowed. Set it in production.',
   );
 
+  // Logging only - the cors middleware below still does the deciding.
+  //
+  // This deliberately does not use the function form of `origin`. Passing
+  // false to that callback makes cors call next() instead of answering
+  // (lib/index.js: `if (err2 || !origin) { next(err2); }`), so the preflight
+  // falls through to the router and comes back 404 "Cannot OPTIONS ...".
+  // That reads like a missing endpoint and sends you looking in the wrong
+  // place. An array answers 204 and simply omits the header, which is what a
+  // blocked preflight is supposed to look like.
+  app.use((req: { headers: Record<string, string | undefined> }, _res: unknown, next: () => void) => {
+    const origin = req.headers.origin;
+
+    if (origin && allowedOrigins.length && !allowedOrigins.includes(origin) && !refused.has(origin)) {
+      refused.add(origin);
+      corsLogger.warn(`Refused ${origin}. CORS_ORIGINS allows: ${allowedOrigins.join(', ')}`);
+    }
+
+    next();
+  });
+
   app.enableCors({
-    origin: allowedOrigins.length
-      ? (origin: string | undefined, callback: (err: Error | null, allow: boolean) => void) => {
-          // No Origin header at all means curl, a health check or a
-          // server-to-server call - not a browser, and nothing to protect.
-          if (!origin || allowedOrigins.includes(origin)) {
-            return callback(null, true);
-          }
-
-          if (!refused.has(origin)) {
-            refused.add(origin);
-            corsLogger.warn(`Refused ${origin}. CORS_ORIGINS allows: ${allowedOrigins.join(', ')}`);
-          }
-
-          // false, not an error: answer the preflight without the header and
-          // let the browser decide, rather than turning it into a 500.
-          callback(null, false);
-        }
-      : true,
+    origin: allowedOrigins.length ? allowedOrigins : true,
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     // Idempotency-Key is a custom header, so the browser preflights every
