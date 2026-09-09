@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { FriendsService } from './friends.service';
 
-describe('FriendsService · unconfirmed accounts', () => {
+describe('FriendsService · unconfirmed and erased accounts', () => {
   const prisma = {
     user: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn() },
     friendship: { findMany: jest.fn(), findUnique: jest.fn(), upsert: jest.fn() },
@@ -30,7 +30,7 @@ describe('FriendsService · unconfirmed accounts', () => {
 
     expect(prisma.friendship.findMany.mock.calls[0][0].where).toEqual({
       userId: 'me',
-      friend: { emailVerifiedAt: { not: null } },
+      friend: { emailVerifiedAt: { not: null }, deletedAt: null },
     });
   });
 
@@ -47,6 +47,7 @@ describe('FriendsService · unconfirmed accounts', () => {
     expect(prisma.user.findFirst.mock.calls[0][0].where).toEqual({
       id: 'unconfirmed-id',
       emailVerifiedAt: { not: null },
+      deletedAt: null,
     });
   });
 

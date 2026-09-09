@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OnboardingService } from '../onboarding/onboarding.service';
+import { CURRENT_TERMS_VERSION } from '../legal/terms';
 
 describe('UserService (Add User & Profile Flow)', () => {
   let service: UserService;
@@ -45,6 +46,8 @@ describe('UserService (Add User & Profile Flow)', () => {
     const user = await service.createUser({
       name: 'Abhi',
       email: 'abhi@example.com',
+      acceptedTerms: true,
+      termsVersion: CURRENT_TERMS_VERSION,
     });
 
     expect(user.id).toBe('new-user-1');
@@ -53,9 +56,9 @@ describe('UserService (Add User & Profile Flow)', () => {
   });
 
   it('should throw BadRequestException if name or email is missing', async () => {
-    await expect(service.createUser({ name: '', email: 'test@example.com' })).rejects.toThrow(BadRequestException);
-    await expect(service.createUser({ name: 'Abhi', email: '' })).rejects.toThrow(BadRequestException);
-    await expect(service.createUser({ name: '  ', email: '  ' })).rejects.toThrow(BadRequestException);
+    await expect(service.createUser({ name: '', email: 'test@example.com', acceptedTerms: true, termsVersion: CURRENT_TERMS_VERSION })).rejects.toThrow(BadRequestException);
+    await expect(service.createUser({ name: 'Abhi', email: '', acceptedTerms: true, termsVersion: CURRENT_TERMS_VERSION })).rejects.toThrow(BadRequestException);
+    await expect(service.createUser({ name: '  ', email: '  ', acceptedTerms: true, termsVersion: CURRENT_TERMS_VERSION })).rejects.toThrow(BadRequestException);
   });
 
   it('should auto-ensure user exists on first request', async () => {

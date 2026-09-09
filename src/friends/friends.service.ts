@@ -7,12 +7,12 @@ const USER_CARD = { id: true, name: true, email: true } as const;
 
 /**
  * Somebody who has not confirmed their address is a half-finished signup, not
- * a person. They cannot sign in, so they can never see a group they were put
+ * a person - and an erased account is not one either. They cannot sign in, so they can never see a group they were put
  * in or settle a debt recorded against them - and an expense split with one of
  * them is a share nobody will ever pay. They stay in the table, invisible,
  * until they confirm.
  */
-const CONFIRMED = { emailVerifiedAt: { not: null } } as const;
+const CONFIRMED = { emailVerifiedAt: { not: null }, deletedAt: null } as const;
 
 @Injectable()
 export class FriendsService {

@@ -118,6 +118,15 @@ model User {
   /// Null until the address is confirmed. Login is refused before that, which
   /// is what keeps unowned addresses out of the data.
   emailVerifiedAt       DateTime?
+  /// Which published policies this person accepted, and when. A version
+  /// rather than a flag: terms change, and "they ticked a box once" stops
+  /// being an answer the moment they do. 'legacy' marks accounts that predate
+  /// any published policy - they are asked once on their next visit.
+  termsVersion                 String?
+  termsAcceptedAt              DateTime?
+  /// Set when the account is erased. The row itself stays, because other
+  /// people's group balances point at it; the personal data on it does not.
+  deletedAt                    DateTime?
   /// The VPAs other members are shown when they owe this person money, so a
   /// settlement can be paid without asking for one in the group chat. A list
   /// because one person often has a bank handle and a wallet, and the payer

@@ -1,4 +1,11 @@
-import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ExpenseScope } from '@prisma/client';
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,6 +20,8 @@ const PROFILE = {
   name: true,
   email: true,
   upiIds: true,
+  termsVersion: true,
+  termsAcceptedAt: true,
   createdAt: true,
   updatedAt: true,
   settings: true,
@@ -47,6 +56,10 @@ export class UserService {
         name,
         email,
         ...(passwordHash ? { passwordHash } : {}),
+        termsVersion: dto.termsVersion,
+        // From the server clock, never the client's: a timestamp the caller
+        // chooses is not evidence of anything.
+        termsAcceptedAt: new Date(),
         settings: {
           create: {
             inputLanguage: 'AUTO',
@@ -134,6 +147,91 @@ export class UserService {
       // on User - passwordHash and passwordChangedAt included.
       select: PROFILE,
     });
+  }
+
+  /**
+   * Its own route rather than a field on PATCH /api/user/me, so that accepting
+   * terms can never happen as a side effect of editing a profile.
+   */
+  async acceptTerms(userId: string, version: string) {
+    await this.ensureUserExists(userId);
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { termsVersion: version, termsAcceptedAt: new Date() },
+      select: { termsVersion: true, termsAcceptedAt: true },
+    });
+
+    return user;
+  }
+
+  /**
+   * Erasure for somebody entangled with other people.
+   *
+   * Their own data goes. Group expenses and settlements stay, with the account
+   * reduced to a tombstone: deleting those rows would silently rewrite three
+   * other people's balances, and a stranger's debt quietly changing is worse
+   * for them than a row reading "Removed user".
+   *
+   * The User row itself stays for the same reason - group balances point at
+   * it, and Group.createdById cascades, so deleting the row would take whole
+   * groups and everybody's expenses in them along with it.
+   */
+  async deleteAccount(userId: string, currentPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user || user.deletedAt) {
+      throw new NotFoundException('Account not found.');
+    }
+
+    if (!user.passwordHash || !(await this.verifyPassword(currentPassword, user.passwordHash))) {
+      throw new UnauthorizedException('Your current password is not correct.');
+    }
+
+    const tombstone = `deleted-${user.id}@removed.invalid`;
+
+    await this.prisma.$transaction([
+      // Personal ledger: theirs alone, so it goes.
+      this.prisma.expense.deleteMany({ where: { ownerId: userId, scope: ExpenseScope.PERSONAL } }),
+      this.prisma.task.deleteMany({ where: { userId } }),
+      this.prisma.reminder.deleteMany({ where: { userId } }),
+      this.prisma.budget.deleteMany({ where: { userId } }),
+      this.prisma.budgetPlan.deleteMany({ where: { userId } }),
+      // Including group ones: otherwise it keeps writing expenses after they
+      // have gone.
+      this.prisma.recurringExpense.deleteMany({ where: { userId } }),
+      this.prisma.pushSubscription.deleteMany({ where: { userId } }),
+      this.prisma.userMission.deleteMany({ where: { userId } }),
+      this.prisma.idempotencyKey.deleteMany({ where: { userId } }),
+      this.prisma.passwordResetToken.deleteMany({ where: { userId } }),
+      this.prisma.emailVerificationToken.deleteMany({ where: { userId } }),
+      // Both directions, so they leave everyone else's friend list too.
+      this.prisma.friendship.deleteMany({
+        where: { OR: [{ userId }, { friendId: userId }] },
+      }),
+      // Theirs, and the ones naming them in somebody else's feed - the body
+      // text carries their name, so leaving those would leave the name behind.
+      this.prisma.notification.deleteMany({
+        where: { OR: [{ userId }, { actorId: userId }] },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          name: 'Removed user',
+          // Keeps the unique index satisfied and frees the real address for
+          // signing up again.
+          email: tombstone,
+          passwordHash: null,
+          // Ends every session that is still open.
+          passwordChangedAt: new Date(),
+          emailVerifiedAt: null,
+          upiIds: [],
+          deletedAt: new Date(),
+        },
+      }),
+    ]);
+
+    return { deleted: true, message: 'Your account has been deleted.' };
   }
 
   async getSettings(userId: string) {

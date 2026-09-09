@@ -1818,6 +1818,76 @@
         "tags": [
           "User & Settings"
         ]
+      },
+      "delete": {
+        "operationId": "UserController_deleteAccount",
+        "summary": "Delete your account",
+        "description": "Personal data is erased. Group expenses and settlements stay, with the account shown as a removed member, because deleting them would rewrite other people's balances.",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "User & Settings"
+        ]
+      }
+    },
+    "/api/user/accept-terms": {
+      "post": {
+        "operationId": "UserController_acceptTerms",
+        "summary": "Record acceptance of the current Terms of Use and Privacy Policy",
+        "description": "Its own route rather than a field on PATCH /me, so accepting terms can never be a side effect of editing a profile.",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "User ID header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptTermsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "User & Settings"
+        ]
       }
     },
     "/api/user/settings": {
@@ -3256,12 +3326,24 @@
             "description": "Account password (mandatory)",
             "example": "strong-password",
             "minLength": 8
+          },
+          "acceptedTerms": {
+            "type": "boolean",
+            "description": "Confirms the Terms of Use, Privacy Policy and being 18 or older were accepted.",
+            "example": true
+          },
+          "termsVersion": {
+            "type": "string",
+            "description": "The published policy version accepted.",
+            "example": "2026-09-10"
           }
         },
         "required": [
           "name",
           "email",
-          "password"
+          "password",
+          "acceptedTerms",
+          "termsVersion"
         ]
       },
       "LoginDto": {
@@ -3373,6 +3455,16 @@
             "example": "strong-password",
             "minLength": 8
           },
+          "acceptedTerms": {
+            "type": "boolean",
+            "description": "Confirms the Terms of Use, Privacy Policy and being 18 or older were accepted.",
+            "example": true
+          },
+          "termsVersion": {
+            "type": "string",
+            "description": "The published policy version accepted.",
+            "example": "2026-09-10"
+          },
           "upiIds": {
             "example": [
               "abhinav@okhdfcbank",
@@ -3385,6 +3477,31 @@
             }
           }
         }
+      },
+      "AcceptTermsDto": {
+        "type": "object",
+        "properties": {
+          "termsVersion": {
+            "type": "string",
+            "description": "The published policy version being accepted.",
+            "example": "2026-09-10"
+          }
+        },
+        "required": [
+          "termsVersion"
+        ]
+      },
+      "DeleteAccountDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "description": "Your current password, to confirm it is really you."
+          }
+        },
+        "required": [
+          "currentPassword"
+        ]
       },
       "UpdateSettingsDto": {
         "type": "object",
